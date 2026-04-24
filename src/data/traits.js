@@ -3,5 +3,10 @@ export const traits = [
   'Methodical',
   'Bold',
   'Pragmatic',
-  'Disciplined'
+  'Disciplined',
+  'Curious',
+  'Defiant',
+  'Patient',
+  'Charismatic',
+  'Tenacious'
 ];
