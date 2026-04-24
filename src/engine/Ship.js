@@ -13,7 +13,30 @@ export default class Ship {
   }
 
   consumeFuel() {
-    this.fuel = Math.max(0, this.fuel - this.dailyFuelConsumption);
-    return this.fuel;
+    const command = this.captain?.attributes?.command ?? 50;
+    const multiplier = this.getFuelMultiplierFromCommand(command);
+    const usage = Math.max(1, Math.round(this.dailyFuelConsumption * multiplier));
+    this.fuel = Math.max(0, this.fuel - usage);
+    return { fuel: this.fuel, usage, multiplier };
+  }
+
+  getFuelMultiplierFromCommand(command) {
+    if (command >= 80) {
+      return 0.7;
+    }
+
+    if (command >= 65) {
+      return 0.85;
+    }
+
+    if (command <= 35) {
+      return 1.35;
+    }
+
+    if (command <= 50) {
+      return 1.15;
+    }
+
+    return 1;
   }
 }

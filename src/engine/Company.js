@@ -4,6 +4,7 @@ export default class Company {
     this.cash = startingCash;
     this.fleet = [];
     this.crew = [];
+    this.availableCrew = [];
     this.eventLog = [];
   }
 
@@ -13,6 +14,31 @@ export default class Company {
 
   addCrewMember(crewMember) {
     this.crew.push(crewMember);
+  }
+
+  addRecruitmentCandidates(candidates) {
+    this.availableCrew.push(...candidates);
+  }
+
+  removeRecruitmentCandidate(index) {
+    if (index < 0 || index >= this.availableCrew.length) {
+      return null;
+    }
+
+    const [candidate] = this.availableCrew.splice(index, 1);
+    return candidate;
+  }
+
+  hireCandidate(index) {
+    const candidate = this.availableCrew[index];
+    if (!candidate || this.cash < candidate.wage) {
+      return null;
+    }
+
+    this.cash -= candidate.wage;
+    const hiredCrew = this.removeRecruitmentCandidate(index);
+    this.addCrewMember(hiredCrew);
+    return hiredCrew;
   }
 
   logEvent(message, day) {

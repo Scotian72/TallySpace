@@ -23,11 +23,21 @@ export default class CrewMember {
   }
 
   updateDaily(rng) {
-    this.fatigue = Math.min(100, this.fatigue + rng.int(1, 4));
+    this.fatigue = Math.min(100, this.fatigue + rng.int(2, 6));
     this.morale = Math.max(0, Math.min(100, this.morale + rng.int(-2, 1)));
 
-    if (this.fatigue > 80) {
-      this.morale = Math.max(0, this.morale - 1);
+    if (this.fatigue > 70) {
+      this.morale = Math.max(0, this.morale - rng.int(1, 3));
     }
+  }
+
+  shouldQuit(rng) {
+    if (this.morale > 25) {
+      return false;
+    }
+
+    const loyaltyShield = Math.max(0, this.loyalty - 40) * 0.005;
+    const quitChance = Math.max(0.05, 0.3 - loyaltyShield);
+    return rng.next() < quitChance;
   }
 }
