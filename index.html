@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TallySpace Simulation</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main id="app" class="app">
+      <h1>TallySpace Simulation</h1>
+
+      <section class="stats">
+        <div><strong>Current Day:</strong> <span data-current-day>1</span></div>
+        <div><strong>Company Cash:</strong> <span data-cash>$0.00</span></div>
+        <div><strong>Number of Ships:</strong> <span data-ships>0</span></div>
+        <div><strong>Number of Crew:</strong> <span data-crew>0</span></div>
+      </section>
+
+      <section class="controls">
+        <button id="advance-day">Advance 1 Day</button>
+        <button id="advance-10-days">Advance 10 Days</button>
+      </section>
+
+      <section>
+        <h2>Event Log</h2>
+        <ul class="event-log" data-event-log></ul>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
