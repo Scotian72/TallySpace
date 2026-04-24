@@ -7,111 +7,103 @@ import EventSystem from './engine/EventSystem.js';
 import { shipTemplates } from './data/ships.js';
 import { crewArchetypes } from './data/crewArchetypes.js';
 import { traits } from './data/traits.js';
-import UI from './ui/UI.js';
+import UIController from './ui/UIController.js';
 
 const rng = new RNG(424242);
 const eventSystem = new EventSystem();
-const ui = new UI();
+const ui = new UIController();
 
 const company = new Company({
   name: 'TallySpace Logistics',
   startingCash: 120000
 });
 
-const starterShip = new Ship(shipTemplates[0]);
+const starterShipTemplate = shipTemplates[0];
+const starterShip = new Ship(starterShipTemplate);
 company.addShip(starterShip);
 
-const starterArchetypes = crewArchetypes.slice(0, 3);
-const createdCrew = starterArchetypes.map((archetype) => {
+const createdCrew = crewArchetypes.map((archetype) => {
+  const name = rng.pick(archetype.names);
+
   const attributes = Object.fromEntries(
-    Object.entries(archetype.baseAttributes).map(([attribute, baseValue]) => [
-      attribute,
-      Math.max(1, Math.min(100, baseValue + rng.int(-5, 5)))
+    Object.entries(archetype.baseAttributes).map(([key, base]) => [
+      key,
+      Math.max(1, Math.min(100, base + rng.int(-6, 6)))
     ])
   );
 
-  const member = new CrewMember({
-    name: rng.pick(archetype.names),
+  const crewMember = new CrewMember({
+    name,
     attributes,
     wage: archetype.wage,
     traits: [rng.pick(traits)]
   });
 
-  company.addCrewMember(member);
-  return member;
+  company.addCrewMember(crewMember);
+  return crewMember;
 });
 
 const captain = createdCrew[0];
 captain.setCaptainStatus(true);
 starterShip.assignCaptain(captain);
 
+const gameLoop = new GameLoop({
+  onDayAdvance(day) {
+    runDailySimulation(day);
+    ui.renderState({ day, company });
+  }
+});
+
 function runDailySimulation(day) {
+  const wagesToday = company.crew.reduce((sum, crewMember) => sum + crewMember.wage, 0);
+  company.cash -= wagesToday;
+  eventSystem.emitLog(company, `Paid crew wages: $${wagesToday}.`, day);
+
   company.crew.forEach((crewMember) => {
-    const dailyCrewState = crewMember.updateDaily(rng);
-    eventSystem.log(company, {
-      day,
-      type: 'crew.daily',
-      message: `${crewMember.name}: fatigue ${dailyCrewState.previousFatigue}→${dailyCrewState.fatigue}, morale ${dailyCrewState.previousMorale}→${dailyCrewState.morale}.`,
-      metadata: { name: crewMember.name, ...dailyCrewState }
-    });
+    const oldFatigue = crewMember.fatigue;
+    const oldMorale = crewMember.morale;
+    crewMember.updateDaily(rng);
+
+    if (crewMember.fatigue !== oldFatigue || crewMember.morale !== oldMorale) {
+      eventSystem.emitLog(
+        company,
+        `${crewMember.name} fatigue ${oldFatigue}→${crewMember.fatigue}, morale ${oldMorale}→${crewMember.morale}.`,
+        day
+      );
+    }
   });
 
   company.fleet.forEach((ship) => {
-    const dailyShipState = ship.updateDaily();
+    const hadCaptain = Boolean(ship.captain);
+    ship.consumeFuel();
+    eventSystem.emitLog(company, `${ship.name} consumed fuel. Remaining fuel: ${ship.fuel}.`, day);
 
-    eventSystem.log(company, {
-      day,
-      type: 'ship.fuel',
-      message: `${ship.name} consumed ${ship.dailyFuelConsumption} fuel. Remaining fuel: ${dailyShipState.fuel}.`,
-      metadata: { shipName: ship.name, fuel: dailyShipState.fuel }
-    });
+    if (ship.captainRequired && !hadCaptain) {
+      eventSystem.emitLog(company, `${ship.name} has no captain assigned.`, day);
+    }
 
-    if (!dailyShipState.hasCaptain) {
-      eventSystem.log(company, {
-        day,
-        type: 'ship.warning',
-        message: `${ship.name} cannot operate without a captain.`,
-        metadata: { shipName: ship.name }
-      });
+    if (ship.fuel <= 0) {
+      eventSystem.emitLog(company, `${ship.name} has run out of fuel.`, day);
     }
   });
 }
 
-const gameLoop = new GameLoop({
-  onDayAdvance(day) {
-    runDailySimulation(day);
-  }
-});
-
 function bootstrap() {
   eventSystem.subscribe(() => {
-    ui.render({ day: gameLoop.day, company });
+    ui.renderState({ day: gameLoop.day, company });
   });
 
-  eventSystem.log(company, {
-    day: gameLoop.day,
-    type: 'company.init',
-    message: `${company.name} founded with $${company.cash}.`
-  });
-
-  eventSystem.log(company, {
-    day: gameLoop.day,
-    type: 'ship.init',
-    message: `Commissioned ${starterShip.name}.`
-  });
-
-  eventSystem.log(company, {
-    day: gameLoop.day,
-    type: 'crew.init',
-    message: `Assigned Captain ${captain.name} to ${starterShip.name}.`
-  });
+  eventSystem.emitLog(company, `${company.name} founded with $${company.cash}.`, gameLoop.day);
+  eventSystem.emitLog(company, `Commissioned ship ${starterShip.name}.`, gameLoop.day);
+  eventSystem.emitLog(company, `Assigned Captain ${captain.name} to ${starterShip.name}.`, gameLoop.day);
+  eventSystem.emitLog(company, `Crew roster initialized: ${company.crew.map((crew) => crew.name).join(', ')}.`, gameLoop.day);
 
   ui.bindAdvanceHandlers(
-    () => gameLoop.tick(),
+    () => gameLoop.advanceDay(),
     () => gameLoop.advanceDays(10)
   );
 
-  ui.render({ day: gameLoop.day, company });
+  ui.renderState({ day: gameLoop.day, company });
 }
 
 bootstrap();

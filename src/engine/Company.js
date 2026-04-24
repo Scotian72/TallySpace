@@ -14,4 +14,11 @@ export default class Company {
   addCrewMember(crewMember) {
     this.crew.push(crewMember);
   }
+
+  logEvent(message, day) {
+    const entry = `Day ${day}: ${message}`;
+    this.eventLog.unshift(entry);
+    this.eventLog = this.eventLog.slice(0, 200);
+    return entry;
+  }
 }

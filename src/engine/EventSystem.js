@@ -11,19 +11,8 @@ export default class EventSystem {
     this.listeners.forEach((listener) => listener(event));
   }
 
-  log(company, { day, type, message, metadata = {} }) {
-    const event = {
-      day,
-      type,
-      message,
-      metadata,
-      timestamp: Date.now()
-    };
-
-    company.eventLog.unshift(event);
-    company.eventLog = company.eventLog.slice(0, 300);
-
-    this.emit(event);
-    return event;
+  emitLog(company, message, day) {
+    const entry = company.logEvent(message, day);
+    this.emit({ type: 'log', day, message, entry });
   }
 }

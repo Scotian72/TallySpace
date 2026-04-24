@@ -4,6 +4,7 @@ export default class Ship {
     this.fuel = fuel;
     this.integrity = integrity;
     this.dailyFuelConsumption = dailyFuelConsumption;
+    this.captainRequired = true;
     this.captain = null;
   }
 
@@ -11,12 +12,8 @@ export default class Ship {
     this.captain = crewMember;
   }
 
-  updateDaily() {
+  consumeFuel() {
     this.fuel = Math.max(0, this.fuel - this.dailyFuelConsumption);
-
-    return {
-      fuel: this.fuel,
-      hasCaptain: Boolean(this.captain)
-    };
+    return this.fuel;
   }
 }

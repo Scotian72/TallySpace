@@ -23,17 +23,11 @@ export default class CrewMember {
   }
 
   updateDaily(rng) {
-    const previousFatigue = this.fatigue;
-    const previousMorale = this.morale;
+    this.fatigue = Math.min(100, this.fatigue + rng.int(1, 4));
+    this.morale = Math.max(0, Math.min(100, this.morale + rng.int(-2, 1)));
 
-    this.fatigue = Math.min(100, this.fatigue + 1);
-    this.morale = Math.max(0, Math.min(100, this.morale + rng.int(-1, 1)));
-
-    return {
-      previousFatigue,
-      previousMorale,
-      fatigue: this.fatigue,
-      morale: this.morale
-    };
+    if (this.fatigue > 80) {
+      this.morale = Math.max(0, this.morale - 1);
+    }
   }
 }
