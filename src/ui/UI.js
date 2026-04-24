@@ -1,4 +1,4 @@
-export default class UIController {
+export default class UI {
   constructor() {
     this.dayEl = document.getElementById('current-day');
     this.cashEl = document.getElementById('company-cash');
@@ -14,16 +14,16 @@ export default class UIController {
     this.advanceTenBtn.addEventListener('click', onAdvanceTen);
   }
 
-  renderState({ day, company }) {
+  render({ day, company }) {
     this.dayEl.textContent = String(day);
     this.cashEl.textContent = `$${company.cash.toLocaleString()}`;
     this.shipCountEl.textContent = String(company.fleet.length);
     this.crewCountEl.textContent = String(company.crew.length);
 
     this.logEl.innerHTML = '';
-    company.eventLog.forEach((entry) => {
+    company.eventLog.forEach((event) => {
       const item = document.createElement('li');
-      item.textContent = entry;
+      item.textContent = `Day ${event.day} [${event.type}] ${event.message}`;
       this.logEl.appendChild(item);
     });
   }

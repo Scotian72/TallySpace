@@ -34,5 +34,29 @@ export const crewArchetypes = [
       resolve: 65
     },
     wage: 160
+  },
+  {
+    role: 'Security Officer',
+    names: ['Tamsin Voss', 'Eli Mercer', 'Roan Cassel'],
+    baseAttributes: {
+      command: 50,
+      navigation: 45,
+      engineering: 45,
+      tactical: 78,
+      resolve: 72
+    },
+    wage: 170
+  },
+  {
+    role: 'Operations Specialist',
+    names: ['Sera Holt', 'Micah Renn', 'Jules Arden'],
+    baseAttributes: {
+      command: 55,
+      navigation: 58,
+      engineering: 62,
+      tactical: 52,
+      resolve: 60
+    },
+    wage: 165
   }
 ];
