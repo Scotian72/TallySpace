@@ -22,18 +22,35 @@ export default class CrewMember {
     this.isCaptain = isCaptain;
   }
 
-  updateDaily(rng, { fatigueRange = [2, 6] } = {}) {
+  updateDaily(
+    rng,
+    {
+      fatigueRange = [2, 6],
+      fatigueMultiplier = 1,
+      isOperating = true,
+      moralePenaltyMultiplier = 1
+    } = {}
+  ) {
     const [fatigueMin, fatigueMax] = fatigueRange;
-    this.fatigue = Math.min(100, this.fatigue + rng.int(fatigueMin, fatigueMax));
-    this.morale = Math.max(0, Math.min(100, this.morale + rng.int(-2, 1)));
+    const fatigueGain = Math.round(rng.int(fatigueMin, fatigueMax) * fatigueMultiplier);
+    const baselineRecovery = rng.int(2, 5);
+    const exhaustionRecovery = this.fatigue >= 85 ? rng.int(2, 4) : 0;
+    const shutdownRecovery = isOperating ? 0 : rng.int(3, 6);
+    const fatigueDelta = fatigueGain - baselineRecovery - exhaustionRecovery - shutdownRecovery;
+
+    this.fatigue = Math.max(0, Math.min(100, this.fatigue + fatigueDelta));
+    this.morale = Math.max(0, Math.min(100, this.morale + rng.int(-1, 2)));
 
     if (this.fatigue > 70) {
-      this.morale = Math.max(0, this.morale - rng.int(1, 3));
+      const fatigueMoralePenalty = Math.ceil(rng.int(1, 3) * moralePenaltyMultiplier);
+      this.morale = Math.max(0, this.morale - fatigueMoralePenalty);
+    } else if (this.fatigue <= 35) {
+      this.morale = Math.min(100, this.morale + rng.int(1, 3));
     }
   }
 
   rest(rng) {
-    const fatigueRecovery = rng.int(20, 40);
+    const fatigueRecovery = rng.int(30, 50);
     const moraleRecovery = rng.int(10, 20);
     const oldFatigue = this.fatigue;
     const oldMorale = this.morale;

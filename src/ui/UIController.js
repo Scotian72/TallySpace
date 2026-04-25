@@ -4,12 +4,14 @@ export default class UIController {
     this.cashEl = document.getElementById('company-cash');
     this.shipCountEl = document.getElementById('ship-count');
     this.crewCountEl = document.getElementById('crew-count');
+    this.shipFuelEl = document.getElementById('ship-fuel');
     this.logEl = document.getElementById('event-log');
     this.companyCrewEl = document.getElementById('company-crew');
     this.recruitmentEl = document.getElementById('recruitment-list');
     this.advanceOneBtn = document.getElementById('advance-1-day');
     this.advanceTenBtn = document.getElementById('advance-10-days');
     this.restCrewBtn = document.getElementById('rest-crew');
+    this.refuelShipBtn = document.getElementById('refuel-ship');
     this.shipModeSelect = document.getElementById('ship-mode');
   }
 
@@ -36,8 +38,9 @@ export default class UIController {
     });
   }
 
-  bindShipActions({ onRestCrew, onChangeShipMode }) {
+  bindShipActions({ onRestCrew, onChangeShipMode, onRefuelShip }) {
     this.restCrewBtn.addEventListener('click', onRestCrew);
+    this.refuelShipBtn.addEventListener('click', onRefuelShip);
     this.shipModeSelect.addEventListener('change', (event) => {
       onChangeShipMode(event.target.value);
     });
@@ -48,7 +51,9 @@ export default class UIController {
     this.cashEl.textContent = `$${company.cash.toLocaleString()}`;
     this.shipCountEl.textContent = String(company.fleet.length);
     this.crewCountEl.textContent = String(company.crew.length);
-    this.shipModeSelect.value = company.fleet[0]?.operationMode ?? 'NORMAL';
+    const primaryShip = company.fleet[0];
+    this.shipFuelEl.textContent = primaryShip ? `${primaryShip.fuel}/${primaryShip.fuelCapacity}` : '0/0';
+    this.shipModeSelect.value = primaryShip?.operationMode ?? 'NORMAL';
 
     this.renderCompanyCrew(company);
     this.renderRecruitment(company);

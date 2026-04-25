@@ -22,6 +22,7 @@ const company = new Company({
 const starterShipTemplate = shipTemplates[0];
 const starterShip = new Ship(starterShipTemplate);
 company.addShip(starterShip);
+const REFUEL_UNIT_COST = 70;
 
 const initialCrew = crewGenerator.generateBatch(3);
 initialCrew.forEach((crewMember) => company.addCrewMember(crewMember));
@@ -86,6 +87,14 @@ function restCrew() {
     return;
   }
 
+  const restCost = Math.round(company.crew.reduce((sum, crewMember) => sum + crewMember.wage, 0) * 0.65);
+  if (company.cash < restCost) {
+    eventSystem.emitLog(company, `Cannot rest crew; need $${restCost} but only have $${company.cash}.`, gameLoop.day);
+    ui.renderState({ day: gameLoop.day, company });
+    return;
+  }
+
+  company.cash -= restCost;
   company.crew.forEach((crewMember) => {
     const recovery = crewMember.rest(rng);
     eventSystem.emitLog(
@@ -94,6 +103,11 @@ function restCrew() {
       gameLoop.day
     );
   });
+  eventSystem.emitLog(
+    company,
+    `Crew rest completed. Lost productivity cost: $${restCost}. Company cash is now $${company.cash}.`,
+    gameLoop.day
+  );
   ui.renderState({ day: gameLoop.day, company });
 }
 
@@ -110,6 +124,39 @@ function changeShipMode(mode) {
   ui.renderState({ day: gameLoop.day, company });
 }
 
+function refuelShip() {
+  const ship = company.fleet[0];
+  if (!ship) {
+    return;
+  }
+
+  const missingFuel = ship.fuelCapacity - ship.fuel;
+  if (missingFuel <= 0) {
+    eventSystem.emitLog(company, `${ship.name} fuel tanks are already full.`, gameLoop.day);
+    ui.renderState({ day: gameLoop.day, company });
+    return;
+  }
+
+  const affordableFuel = Math.floor(company.cash / REFUEL_UNIT_COST);
+  const fuelToBuy = Math.min(missingFuel, affordableFuel);
+
+  if (fuelToBuy <= 0) {
+    eventSystem.emitLog(company, `Cannot refuel ${ship.name}; each fuel costs $${REFUEL_UNIT_COST} and cash is $${company.cash}.`, gameLoop.day);
+    ui.renderState({ day: gameLoop.day, company });
+    return;
+  }
+
+  const cost = fuelToBuy * REFUEL_UNIT_COST;
+  const addedFuel = ship.refuel(fuelToBuy);
+  company.cash -= cost;
+  eventSystem.emitLog(
+    company,
+    `Refueled ${ship.name} by ${addedFuel} for $${cost}. Fuel is now ${ship.fuel}/${ship.fuelCapacity}.`,
+    gameLoop.day
+  );
+  ui.renderState({ day: gameLoop.day, company });
+}
+
 function runDailySimulation(day) {
   if (day % 5 === 0) {
     generateRecruitmentPool(day);
@@ -120,11 +167,23 @@ function runDailySimulation(day) {
   eventSystem.emitLog(company, `Paid crew wages: $${wagesToday}.`, day);
 
   const remainingCrew = [];
+  const shipCanOperate = starterShip.fuel > 0 && Boolean(starterShip.captain);
   company.crew.forEach((crewMember) => {
     const oldFatigue = crewMember.fatigue;
     const oldMorale = crewMember.morale;
-    const fatigueRange = starterShip.getOperationModeModifiers().fatigueRange;
-    crewMember.updateDaily(rng, { fatigueRange });
+    const { fatigueMultiplier } = starterShip.getOperationModeModifiers();
+    const fatigueRange = [2, 6];
+    const moralePenaltyMultiplier = starterShip.fuel > 0 ? 1 : 1.8;
+    crewMember.updateDaily(rng, {
+      fatigueRange,
+      fatigueMultiplier,
+      isOperating: shipCanOperate,
+      moralePenaltyMultiplier
+    });
+
+    if (starterShip.fuel <= 0) {
+      crewMember.morale = Math.max(0, crewMember.morale - rng.int(2, 4));
+    }
 
     if (crewMember.fatigue !== oldFatigue || crewMember.morale !== oldMorale) {
       eventSystem.emitLog(
@@ -157,14 +216,30 @@ function runDailySimulation(day) {
     assignCaptain(fallbackCaptain, day);
   }
 
+  if (starterShip.fuel <= 0) {
+    eventSystem.emitLog(company, `${starterShip.name} is out of fuel; operations are halted and morale is deteriorating faster.`, day);
+  }
+
   company.fleet.forEach((ship) => {
     const hadCaptain = Boolean(ship.captain);
+    const produced = hadCaptain && ship.fuel > 0;
+
+    if (produced) {
+      const revenue = ship.calculateDailyRevenue();
+      company.cash += revenue;
+      eventSystem.emitLog(company, `${ship.name} generated $${revenue} in deliveries. Company cash is now $${company.cash}.`, day);
+    } else {
+      eventSystem.emitLog(company, `${ship.name} produced nothing today.`, day);
+    }
+
     const { fuel, usage } = ship.consumeFuel();
-    eventSystem.emitLog(
-      company,
-      `${ship.name} [${ship.operationMode}] consumed ${usage} fuel. Remaining fuel: ${fuel}.`,
-      day
-    );
+    if (usage > 0) {
+      eventSystem.emitLog(
+        company,
+        `${ship.name} [${ship.operationMode}] consumed ${usage} fuel. Remaining fuel: ${fuel}.`,
+        day
+      );
+    }
 
     if (ship.captainRequired && !hadCaptain) {
       eventSystem.emitLog(company, `${ship.name} has no captain assigned.`, day);
@@ -198,7 +273,8 @@ function bootstrap() {
   });
   ui.bindShipActions({
     onRestCrew: () => restCrew(),
-    onChangeShipMode: (mode) => changeShipMode(mode)
+    onChangeShipMode: (mode) => changeShipMode(mode),
+    onRefuelShip: () => refuelShip()
   });
 
   ui.renderState({ day: gameLoop.day, company });
