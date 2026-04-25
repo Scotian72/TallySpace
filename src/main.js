@@ -42,10 +42,11 @@ const gameLoop = new GameLoop({
 });
 
 function generateRecruitmentPool(day) {
-  const count = rng.int(3, 5);
-  const candidates = crewGenerator.generateBatch(count);
-  company.addRecruitmentCandidates(candidates);
-  eventSystem.emitLog(company, `Recruitment cycle: ${count} new crew candidates available.`, day);
+  const count = 5;
+  const existingNames = new Set(company.crew.map((crew) => crew.name));
+  const candidates = crewGenerator.generateUniqueBatch(count, existingNames);
+  company.availableCrew = candidates.slice(0, 5);
+  eventSystem.emitLog(company, `Recruitment pool refreshed with ${company.availableCrew.length} candidates.`, day);
 }
 
 function assignCaptain(crewMember, day) {
@@ -80,6 +81,35 @@ function hireCrew(index) {
   ui.renderState({ day: gameLoop.day, company });
 }
 
+function restCrew() {
+  if (!company.crew.length) {
+    return;
+  }
+
+  company.crew.forEach((crewMember) => {
+    const recovery = crewMember.rest(rng);
+    eventSystem.emitLog(
+      company,
+      `${crewMember.name} rested: fatigue ${recovery.oldFatigue}→${recovery.newFatigue}, morale ${recovery.oldMorale}→${recovery.newMorale}.`,
+      gameLoop.day
+    );
+  });
+  ui.renderState({ day: gameLoop.day, company });
+}
+
+function changeShipMode(mode) {
+  const ship = company.fleet[0];
+  if (!ship) {
+    return;
+  }
+
+  if (ship.setOperationMode(mode)) {
+    eventSystem.emitLog(company, `${ship.name} operation mode set to ${mode}.`, gameLoop.day);
+  }
+
+  ui.renderState({ day: gameLoop.day, company });
+}
+
 function runDailySimulation(day) {
   if (day % 5 === 0) {
     generateRecruitmentPool(day);
@@ -93,7 +123,8 @@ function runDailySimulation(day) {
   company.crew.forEach((crewMember) => {
     const oldFatigue = crewMember.fatigue;
     const oldMorale = crewMember.morale;
-    crewMember.updateDaily(rng);
+    const fatigueRange = starterShip.getOperationModeModifiers().fatigueRange;
+    crewMember.updateDaily(rng, { fatigueRange });
 
     if (crewMember.fatigue !== oldFatigue || crewMember.morale !== oldMorale) {
       eventSystem.emitLog(
@@ -129,7 +160,11 @@ function runDailySimulation(day) {
   company.fleet.forEach((ship) => {
     const hadCaptain = Boolean(ship.captain);
     const { fuel, usage } = ship.consumeFuel();
-    eventSystem.emitLog(company, `${ship.name} consumed ${usage} fuel. Remaining fuel: ${fuel}.`, day);
+    eventSystem.emitLog(
+      company,
+      `${ship.name} [${ship.operationMode}] consumed ${usage} fuel. Remaining fuel: ${fuel}.`,
+      day
+    );
 
     if (ship.captainRequired && !hadCaptain) {
       eventSystem.emitLog(company, `${ship.name} has no captain assigned.`, day);
@@ -160,6 +195,10 @@ function bootstrap() {
   ui.bindCrewActions({
     onHire: (index) => hireCrew(index),
     onAssignCaptain: (index) => assignCaptain(company.crew[index], gameLoop.day)
+  });
+  ui.bindShipActions({
+    onRestCrew: () => restCrew(),
+    onChangeShipMode: (mode) => changeShipMode(mode)
   });
 
   ui.renderState({ day: gameLoop.day, company });

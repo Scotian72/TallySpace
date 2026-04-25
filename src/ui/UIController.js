@@ -9,6 +9,8 @@ export default class UIController {
     this.recruitmentEl = document.getElementById('recruitment-list');
     this.advanceOneBtn = document.getElementById('advance-1-day');
     this.advanceTenBtn = document.getElementById('advance-10-days');
+    this.restCrewBtn = document.getElementById('rest-crew');
+    this.shipModeSelect = document.getElementById('ship-mode');
   }
 
   bindAdvanceHandlers(onAdvanceOne, onAdvanceTen) {
@@ -34,11 +36,19 @@ export default class UIController {
     });
   }
 
+  bindShipActions({ onRestCrew, onChangeShipMode }) {
+    this.restCrewBtn.addEventListener('click', onRestCrew);
+    this.shipModeSelect.addEventListener('change', (event) => {
+      onChangeShipMode(event.target.value);
+    });
+  }
+
   renderState({ day, company }) {
     this.dayEl.textContent = String(day);
     this.cashEl.textContent = `$${company.cash.toLocaleString()}`;
     this.shipCountEl.textContent = String(company.fleet.length);
     this.crewCountEl.textContent = String(company.crew.length);
+    this.shipModeSelect.value = company.fleet[0]?.operationMode ?? 'NORMAL';
 
     this.renderCompanyCrew(company);
     this.renderRecruitment(company);
@@ -53,11 +63,18 @@ export default class UIController {
       item.className = 'crew-card';
 
       const captainLabel = crewMember.isCaptain ? ' (Captain)' : '';
+      const fatigueWarning = crewMember.fatigue >= 100
+        ? '<p class="warning-text">Exhausted: effectiveness reduced</p>'
+        : crewMember.fatigue >= 80
+          ? '<p class="warning-text">Warning: high fatigue</p>'
+          : '';
+      const fatigueClass = crewMember.fatigue >= 80 ? ' crew-card--fatigued' : '';
       item.innerHTML = `
-        <div>
+        <div class="crew-meta${fatigueClass}">
           <strong>${crewMember.name}${captainLabel}</strong>
           <p>Cmd ${crewMember.attributes.command} • Nav ${crewMember.attributes.navigation} • Eng ${crewMember.attributes.engineering}</p>
           <p>Morale ${crewMember.morale} • Fatigue ${crewMember.fatigue} • Loyalty ${crewMember.loyalty} • Wage $${crewMember.wage}</p>
+          ${fatigueWarning}
         </div>
         <button type="button" data-action="assign-captain" data-index="${index}">Assign Captain</button>
       `;
@@ -69,7 +86,7 @@ export default class UIController {
   renderRecruitment(company) {
     this.recruitmentEl.innerHTML = '';
 
-    company.availableCrew.forEach((candidate, index) => {
+    company.availableCrew.slice(0, 5).forEach((candidate, index) => {
       const item = document.createElement('li');
       item.className = 'crew-card';
       item.innerHTML = `

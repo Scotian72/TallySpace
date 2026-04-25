@@ -22,8 +22,9 @@ export default class CrewMember {
     this.isCaptain = isCaptain;
   }
 
-  updateDaily(rng) {
-    this.fatigue = Math.min(100, this.fatigue + rng.int(2, 6));
+  updateDaily(rng, { fatigueRange = [2, 6] } = {}) {
+    const [fatigueMin, fatigueMax] = fatigueRange;
+    this.fatigue = Math.min(100, this.fatigue + rng.int(fatigueMin, fatigueMax));
     this.morale = Math.max(0, Math.min(100, this.morale + rng.int(-2, 1)));
 
     if (this.fatigue > 70) {
@@ -31,13 +32,44 @@ export default class CrewMember {
     }
   }
 
+  rest(rng) {
+    const fatigueRecovery = rng.int(20, 40);
+    const moraleRecovery = rng.int(10, 20);
+    const oldFatigue = this.fatigue;
+    const oldMorale = this.morale;
+
+    this.fatigue = Math.max(0, this.fatigue - fatigueRecovery);
+    this.morale = Math.min(100, this.morale + moraleRecovery);
+
+    return {
+      oldFatigue,
+      oldMorale,
+      newFatigue: this.fatigue,
+      newMorale: this.morale,
+      fatigueRecovery,
+      moraleRecovery
+    };
+  }
+
   shouldQuit(rng) {
-    if (this.morale > 25) {
+    if (this.morale >= 10) {
       return false;
     }
 
     const loyaltyShield = Math.max(0, this.loyalty - 40) * 0.005;
-    const quitChance = Math.max(0.05, 0.3 - loyaltyShield);
+    const quitChance = Math.max(0.1, 0.45 - loyaltyShield);
     return rng.next() < quitChance;
+  }
+
+  getEffectivenessMultiplier() {
+    if (this.fatigue >= 100) {
+      return 0.6;
+    }
+
+    if (this.fatigue >= 85) {
+      return 0.8;
+    }
+
+    return 1;
   }
 }

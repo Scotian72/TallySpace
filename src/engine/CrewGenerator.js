@@ -35,4 +35,24 @@ export default class CrewGenerator {
   generateBatch(count) {
     return Array.from({ length: count }, () => this.generateCandidate());
   }
+
+  generateUniqueBatch(count, existingNames = new Set()) {
+    const uniqueNames = new Set(existingNames);
+    const candidates = [];
+    let attempts = 0;
+    const maxAttempts = count * 20;
+
+    while (candidates.length < count && attempts < maxAttempts) {
+      attempts += 1;
+      const candidate = this.generateCandidate();
+      if (uniqueNames.has(candidate.name)) {
+        continue;
+      }
+
+      uniqueNames.add(candidate.name);
+      candidates.push(candidate);
+    }
+
+    return candidates;
+  }
 }
