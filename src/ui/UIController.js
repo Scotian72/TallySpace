@@ -12,6 +12,8 @@ export default class UIController {
     this.advanceTenBtn = document.getElementById('advance-10-days');
     this.restCrewBtn = document.getElementById('rest-crew');
     this.refuelShipBtn = document.getElementById('refuel-ship');
+    this.exportDataBtn = document.getElementById('export-data');
+    this.copyExportDataBtn = document.getElementById('copy-export-data');
     this.shipModeSelect = document.getElementById('ship-mode');
   }
 
@@ -44,6 +46,11 @@ export default class UIController {
     this.shipModeSelect.addEventListener('change', (event) => {
       onChangeShipMode(event.target.value);
     });
+  }
+
+  bindExportActions({ onExportData, onCopyExportData }) {
+    this.exportDataBtn.addEventListener('click', onExportData);
+    this.copyExportDataBtn.addEventListener('click', onCopyExportData);
   }
 
   renderState({ day, company }) {
