@@ -157,6 +157,68 @@ function refuelShip() {
   ui.renderState({ day: gameLoop.day, company });
 }
 
+function serializeGameState() {
+  return {
+    day: gameLoop.day,
+    company: {
+      cash: company.cash,
+      ships: company.fleet.length,
+      crew: company.crew.length
+    },
+    crew: company.crew.map((crewMember) => ({
+      name: crewMember.name,
+      attributes: { ...crewMember.attributes },
+      morale: crewMember.morale,
+      fatigue: crewMember.fatigue,
+      loyalty: crewMember.loyalty,
+      wage: crewMember.wage,
+      traits: [...crewMember.traits],
+      isCaptain: crewMember.isCaptain
+    })),
+    ships: company.fleet.map((ship) => ({
+      name: ship.name,
+      fuel: ship.fuel,
+      fuelCapacity: ship.fuelCapacity,
+      integrity: ship.integrity,
+      dailyFuelConsumption: ship.dailyFuelConsumption,
+      baseDailyRevenue: ship.baseDailyRevenue,
+      captainRequired: ship.captainRequired,
+      captainAssignment: ship.captain?.name ?? null,
+      operationMode: ship.operationMode ?? null
+    })),
+    eventLog: company.eventLog.slice(0, 500)
+  };
+}
+
+function createSaveJson() {
+  return JSON.stringify(serializeGameState(), null, 2);
+}
+
+function exportData() {
+  const saveJson = createSaveJson();
+  const blob = new Blob([saveJson], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'tallyspace_save.json';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  eventSystem.emitLog(company, 'Game state exported to tallyspace_save.json.', gameLoop.day);
+}
+
+async function copyExportData() {
+  const saveJson = createSaveJson();
+  try {
+    await navigator.clipboard.writeText(saveJson);
+    eventSystem.emitLog(company, 'Export JSON copied to clipboard.', gameLoop.day);
+  } catch {
+    eventSystem.emitLog(company, 'Clipboard unavailable: copy export JSON manually from console output.', gameLoop.day);
+    console.log(saveJson);
+  }
+}
+
 function runDailySimulation(day) {
   if (day % 5 === 0) {
     generateRecruitmentPool(day);
@@ -275,6 +337,10 @@ function bootstrap() {
     onRestCrew: () => restCrew(),
     onChangeShipMode: (mode) => changeShipMode(mode),
     onRefuelShip: () => refuelShip()
+  });
+  ui.bindExportActions({
+    onExportData: () => exportData(),
+    onCopyExportData: () => copyExportData()
   });
 
   ui.renderState({ day: gameLoop.day, company });

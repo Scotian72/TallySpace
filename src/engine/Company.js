@@ -44,7 +44,7 @@ export default class Company {
   logEvent(message, day) {
     const entry = `Day ${day}: ${message}`;
     this.eventLog.unshift(entry);
-    this.eventLog = this.eventLog.slice(0, 200);
+    this.eventLog = this.eventLog.slice(0, 500);
     return entry;
   }
 }
