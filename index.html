@@ -10,6 +10,8 @@
     <main class="app">
       <h1 id="game-title">TallySpace Simulation</h1>
       <p id="status-message" class="status">Awaiting command.</p>
+      <div id="alert-banners" class="alert-stack"></div>
+      <p id="player-loop-hint" class="loop-hint"></p>
 
       <section class="stats">
         <p><strong>Current Day:</strong> <span id="current-day">1</span></p>
@@ -18,11 +20,29 @@
         <p><strong>Crew:</strong> <span id="crew-count">0</span></p>
       </section>
 
+      <section class="panel command-panel">
+        <h2>COMMAND STATUS</h2>
+        <div class="command-grid">
+          <p><strong>Ship:</strong> <span id="command-ship-name">-</span></p>
+          <p><strong>Location:</strong> <span id="command-location">-</span></p>
+          <p><strong>Captain:</strong> <span id="command-captain">-</span></p>
+          <p class="command-state"><strong>Current Status:</strong> <span id="command-status" class="command-status-text">IDLE</span></p>
+        </div>
+        <p><strong>Active Contract:</strong> <span id="command-active-contract">None</span></p>
+        <p id="travel-headline" class="travel-headline">Awaiting orders.</p>
+        <p id="travel-eta" class="subtext"></p>
+        <div class="progress">
+          <span id="command-progress-fill"></span>
+        </div>
+        <p id="command-progress-label" class="subtext">0% complete</p>
+        <p><strong>Daily Cost:</strong> <span id="command-burn">$0/day burn</span></p>
+        <p><strong>Net Projection:</strong> <span id="command-projection">No mission selected.</span></p>
+      </section>
+
       <section class="panel">
-        <h2>Ship Status</h2>
+        <h2>Ship Operations</h2>
         <p><strong>Fuel:</strong> <span id="ship-fuel">0/0</span></p>
         <p><strong>Location:</strong> <span id="ship-location">-</span></p>
-        <p><strong>Captain:</strong> <span id="ship-captain">Assigned in crew list</span></p>
         <p><strong>Operation mode:</strong>
           <select id="ship-mode">
             <option value="LOW">LOW</option>
@@ -31,7 +51,6 @@
           </select>
         </p>
         <p><strong>Integrity:</strong> <span id="ship-integrity">-</span></p>
-        <p><strong>Active contract:</strong> <span id="ship-active-contract">None</span></p>
         <p><strong>Daily wage burden:</strong> <span id="wage-burden">$0/day</span></p>
         <p><strong>Travel readiness:</strong> <span id="ship-readiness">NO CAPTAIN</span></p>
         <div class="controls">
@@ -46,6 +65,15 @@
       </section>
 
       <section class="panel">
+        <h2>COMPANY FINANCIALS</h2>
+        <p><strong>Daily wages:</strong> <span id="fin-daily-wages">$0/day</span></p>
+        <p><strong>Fuel costs (recent):</strong> <span id="fin-fuel-cost">$0</span></p>
+        <p><strong>Repair costs (recent):</strong> <span id="fin-repair-cost">$0</span></p>
+        <p><strong>Net income (last 10 days):</strong> <span id="fin-net-10">$0</span></p>
+        <p><strong>Projection:</strong> <span id="fin-bankrupt">Stable.</span></p>
+      </section>
+
+      <section class="panel">
         <h2>Sector Map</h2>
         <p id="system-description">-</p>
         <ul id="destinations-list" class="crew-list"></ul>
@@ -54,6 +82,7 @@
       <section class="panel">
         <h2>Contract Board</h2>
         <ul id="contract-board" class="crew-list"></ul>
+        <div id="mission-briefing" class="mission-briefing"></div>
       </section>
 
       <section class="panel">

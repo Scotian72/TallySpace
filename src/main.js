@@ -22,12 +22,136 @@ const starterShip = new Ship({ ...shipTemplates[0], location: 'new-canaan' });
 company.addShip(starterShip);
 
 const gameLoop = new GameLoop({ onDayAdvance(day) { runDailySimulation(day); render(); } });
+const financeLedger = new Map();
+let selectedContractId = null;
+
+function ensureLedger(day) {
+  if (!financeLedger.has(day)) {
+    financeLedger.set(day, { income: 0, wages: 0, fuel: 0, repair: 0, otherExpense: 0 });
+  }
+  return financeLedger.get(day);
+}
+
+function trackFinance(day, { income = 0, wages = 0, fuel = 0, repair = 0, otherExpense = 0 } = {}) {
+  const row = ensureLedger(day);
+  row.income += income;
+  row.wages += wages;
+  row.fuel += fuel;
+  row.repair += repair;
+  row.otherExpense += otherExpense;
+}
+
+function getRecentSum(key, window = 10) {
+  let total = 0;
+  const fromDay = Math.max(1, gameLoop.day - window + 1);
+  for (let day = fromDay; day <= gameLoop.day; day += 1) {
+    total += financeLedger.get(day)?.[key] ?? 0;
+  }
+  return total;
+}
+
+function computeStatus(ship) {
+  if (ship.integrity < 35) return 'DAMAGED';
+  if (ship.fuel <= 0) return 'STRANDED';
+  if (ship.travelPlan) return 'TRAVELING';
+  if (ship.activeContract) return 'ON CONTRACT';
+  return 'IDLE';
+}
+
+function buildAlerts() {
+  const alerts = [];
+  const dailyBurn = company.crew.reduce((sum, c) => sum + c.wage, 0);
+  const avgMorale = company.crew.length ? Math.round(company.crew.reduce((sum, c) => sum + c.morale, 0) / company.crew.length) : 0;
+  const highFatigue = company.crew.some((crew) => crew.fatigue >= 80);
+  const topContract = contractBoard.contracts.find((c) => c.id === selectedContractId);
+
+  if (!starterShip.activeContract) alerts.push({ level: 'critical', label: '🔴 CRITICAL', message: `No active contract — losing $${dailyBurn}/day` });
+  if (!starterShip.captain) alerts.push({ level: 'critical', label: '🔴 CRITICAL', message: 'No captain assigned' });
+  if (starterShip.fuel <= 0) alerts.push({ level: 'critical', label: '🔴 CRITICAL', message: 'Fuel depleted — ship stranded' });
+  if (highFatigue) alerts.push({ level: 'warning', label: '🟡 WARNING', message: 'Crew fatigue high' });
+  if (avgMorale <= 42) alerts.push({ level: 'warning', label: '🟡 WARNING', message: 'Morale dropping' });
+  if (topContract && topContract.risk >= 70) alerts.push({ level: 'warning', label: '🟡 WARNING', message: 'High risk contract selected' });
+
+  const latest = company.eventLog[0] ?? '';
+  if (latest.includes('Contract complete')) alerts.push({ level: 'info', label: '🟢 INFO', message: 'Contract completed successfully' });
+  if (latest.includes('reached level')) alerts.push({ level: 'info', label: '🟢 INFO', message: 'Crew leveled up' });
+
+  if (!alerts.length) alerts.push({ level: 'info', label: '🟢 INFO', message: 'Systems stable — ready for next move' });
+  return alerts.slice(0, 4);
+}
+
+function getMetrics() {
+  const dailyWages = company.crew.reduce((sum, c) => sum + c.wage, 0);
+  const dailyBurn = dailyWages;
+  const netIncome10Days = getRecentSum('income') - getRecentSum('wages') - getRecentSum('fuel') - getRecentSum('repair') - getRecentSum('otherExpense');
+  const recentFuelCost = getRecentSum('fuel');
+  const recentRepairCost = getRecentSum('repair');
+
+  const currentSystem = systemById[starterShip.location];
+  const selectedContract = contractBoard.contracts.find((contract) => contract.id === selectedContractId);
+  const commandState = computeStatus(starterShip);
+
+  let progressPercent = 0;
+  let travelHeadline = 'Awaiting orders.';
+  let travelEta = '';
+  if (starterShip.travelPlan) {
+    const destination = systemById[starterShip.travelPlan.to];
+    progressPercent = ((starterShip.travelPlan.totalDays - starterShip.travelPlan.daysRemaining) / starterShip.travelPlan.totalDays) * 100;
+    travelHeadline = `EN ROUTE TO ${destination.name.toUpperCase()}`;
+    travelEta = `ETA: ${starterShip.travelPlan.daysRemaining} day(s)`;
+  } else if (starterShip.activeContract) {
+    const destination = systemById[starterShip.activeContract.destination];
+    const total = starterShip.activeContract.durationDays;
+    const remaining = starterShip.travelPlan?.daysRemaining ?? total;
+    progressPercent = ((total - remaining) / total) * 100;
+    travelHeadline = `MISSION TARGET: ${destination.name.toUpperCase()}`;
+    travelEta = `Contract window: ${remaining} day(s) estimated`;
+  } else if (selectedContract) {
+    const destination = systemById[selectedContract.destination];
+    travelHeadline = `MISSION PREP: ${currentSystem.name} → ${destination.name}`;
+    travelEta = `Estimated: ${selectedContract.durationDays} day(s)`;
+  }
+
+  let netProjection = `You are losing money (-$${dailyBurn.toLocaleString()}/day)`;
+  let netProjectionType = 'warn';
+  if (starterShip.activeContract) {
+    const projectedProfit = starterShip.activeContract.payout - (dailyBurn * starterShip.activeContract.durationDays);
+    if (projectedProfit >= 0) {
+      netProjection = `This contract will net +$${projectedProfit.toLocaleString()} profit`;
+      netProjectionType = 'good';
+    } else {
+      netProjection = `This contract will lose -$${Math.abs(projectedProfit).toLocaleString()}`;
+    }
+  }
+
+  const dailyNetEstimate = Math.max(1, dailyBurn + Math.round((recentFuelCost + recentRepairCost) / 10));
+  const bankruptcyDays = company.cash > 0 ? Math.floor(company.cash / dailyNetEstimate) : 0;
+  const bankruptProjection = company.cash <= 0
+    ? 'Bankrupt now — immediate action required.'
+    : `At current rate: bankrupt in ${bankruptcyDays} days`;
+
+  return {
+    dailyWages,
+    dailyBurn,
+    recentFuelCost,
+    recentRepairCost,
+    netIncome10Days,
+    bankruptProjection,
+    commandState,
+    progressPercent,
+    travelHeadline,
+    travelEta,
+    netProjection,
+    netProjectionType,
+    alerts: buildAlerts()
+  };
+}
 
 function setStatus(message) { ui.setStatus(message); }
 function log(message) { eventSystem.emitLog(company, message, gameLoop.day); setStatus(message); }
 
 function render() {
-  ui.renderState({ day: gameLoop.day, company, systemsById: systemById, contracts: contractBoard.contracts });
+  ui.renderState({ day: gameLoop.day, company, systemsById: systemById, contracts: contractBoard.contracts, metrics: getMetrics(), selectedContractId });
 }
 
 function generateRecruitmentPool(day) {
@@ -50,6 +174,7 @@ function hireCrew(index) {
   if (!candidate) return;
   if (company.cash < candidate.wage) return log(`Cannot hire ${candidate.name}: insufficient cash.`);
   const hiredCrew = company.hireCandidate(index);
+  trackFinance(gameLoop.day, { otherExpense: hiredCrew.wage });
   log(`Hired ${hiredCrew.name} (${hiredCrew.archetype}) for $${hiredCrew.wage}.`);
   render();
 }
@@ -59,6 +184,7 @@ function restCrew() {
   const restCost = Math.round(company.crew.reduce((sum, c) => sum + c.wage, 0) * 0.65);
   if (company.cash < restCost) return log(`Cannot rest crew: need $${restCost} and have $${company.cash}.`);
   company.cash -= restCost;
+  trackFinance(gameLoop.day, { otherExpense: restCost });
   company.crew.forEach((crewMember) => crewMember.rest(rng));
   log(`Crew rested. Cost $${restCost}.`);
   render();
@@ -75,7 +201,9 @@ function refuelShip() {
   if (fuelToBuy <= 0) return log(`Cannot refuel: fuel price is $${system.fuelPrice} and cash is $${company.cash}.`);
   company.cash -= fuelToBuy * system.fuelPrice;
   starterShip.refuel(fuelToBuy);
-  log(`Refueled ${starterShip.name} by ${fuelToBuy} at ${system.name} for $${fuelToBuy * system.fuelPrice}.`);
+  const spend = fuelToBuy * system.fuelPrice;
+  trackFinance(gameLoop.day, { fuel: spend });
+  log(`Refueled ${starterShip.name} by ${fuelToBuy} at ${system.name} for $${spend}.`);
   render();
 }
 
@@ -86,10 +214,11 @@ function repairShip() {
   const pointCost = Math.round(160 * system.repairCostModifier);
   const affordable = Math.floor(company.cash / pointCost);
   const repairPoints = Math.min(missing, affordable);
-  if (repairPoints <= 0) return log(`Cannot repair: insufficient cash for ${system.name} yard rates.`);
+  if (repairPoints <= 0) return log('Cannot repair: insufficient cash for yard rates.');
   const restored = starterShip.repair(repairPoints);
   const cost = restored * pointCost;
   company.cash -= cost;
+  trackFinance(gameLoop.day, { repair: cost });
   log(`Repaired ${starterShip.name} by ${restored} integrity at ${system.name} for $${cost}.`);
   render();
 }
@@ -119,6 +248,16 @@ function startTravel(destinationId) {
   starterShip.fuel = Math.max(0, starterShip.fuel - fuelCost);
   starterShip.travelPlan = { from: starterShip.location, to: destinationId, daysRemaining: days, totalDays: days };
   log(`${starterShip.name} departed ${from.name} for ${to.name}. ETA ${days} day(s).`);
+  render();
+}
+
+function selectContract(contractId) {
+  selectedContractId = contractId;
+  const contract = contractBoard.contracts.find((item) => item.id === contractId);
+  if (contract) {
+    log(`Mission selected: ${contract.type} to ${systemById[contract.destination].name}.`);
+  }
+  render();
 }
 
 function acceptContract(contractId) {
@@ -131,6 +270,7 @@ function acceptContract(contractId) {
   if (starterShip.location !== contract.origin) return log('Contract blocked: ship is not at contract origin.');
 
   starterShip.activeContract = contractBoard.acceptContract(contractId);
+  selectedContractId = null;
   log(`Contract accepted: ${starterShip.activeContract.type} to ${systemById[starterShip.activeContract.destination].name}.`);
   render();
 }
@@ -144,6 +284,7 @@ function resolveContract(success) {
     const cautiousPenalty = company.crew.some((c) => c.traits.includes('Cautious')) ? 0.97 : 1;
     const payout = Math.round(contract.payout * payoutBoost * recklessBonus * cautiousPenalty);
     company.cash += payout;
+    trackFinance(gameLoop.day, { income: payout });
     company.crew.forEach((crew) => {
       const levelUps = crew.gainExperience(rng.int(25, 45), rng);
       crew.morale = Math.min(100, crew.morale + rng.int(2, 6));
@@ -164,8 +305,30 @@ function resolveContract(success) {
 
 function processTravelDay() {
   if (!starterShip.travelPlan) return;
+  const transitNarratives = ['Routine transit', 'Minor system fluctuation', 'Crew tension rising'];
+  const narrative = transitNarratives[rng.int(0, transitNarratives.length - 1)];
+  eventSystem.emitLog(company, `${narrative}.`, gameLoop.day);
+
+  if (rng.int(1, 100) <= 22) {
+    const eventRoll = rng.int(1, 3);
+    if (eventRoll === 1) {
+      const moraleShift = rng.int(-4, 3);
+      company.crew.forEach((c) => { c.morale = Math.max(0, Math.min(100, c.morale + moraleShift)); });
+      eventSystem.emitLog(company, `Minor event: morale shift ${moraleShift >= 0 ? '+' : ''}${moraleShift}.`, gameLoop.day);
+    } else if (eventRoll === 2) {
+      const fatigueSpike = rng.int(4, 10);
+      company.crew.forEach((c) => { c.fatigue = Math.min(100, c.fatigue + fatigueSpike); });
+      eventSystem.emitLog(company, `Minor event: fatigue spike +${fatigueSpike}.`, gameLoop.day);
+    } else {
+      const repairNeed = rng.int(1, 4);
+      starterShip.applyDamage(repairNeed);
+      eventSystem.emitLog(company, `Minor event: systems wear, integrity -${repairNeed}.`, gameLoop.day);
+    }
+  }
+
   starterShip.travelPlan.daysRemaining -= 1;
   if (starterShip.travelPlan.daysRemaining > 0) return;
+
   const destination = systemById[starterShip.travelPlan.to];
   starterShip.location = starterShip.travelPlan.to;
 
@@ -247,11 +410,13 @@ async function copyExportData() {
 }
 
 function runDailySimulation(day) {
+  ensureLedger(day);
   if (day % 5 === 0) generateRecruitmentPool(day);
   contractBoard.refreshContracts(day, starterShip.location);
 
   const wagesToday = company.crew.reduce((sum, crewMember) => sum + crewMember.wage, 0);
   company.cash -= wagesToday;
+  trackFinance(day, { wages: wagesToday });
   eventSystem.emitLog(company, `Paid crew wages: $${wagesToday}.`, day);
 
   const shipCanOperate = starterShip.fuel > 0 && Boolean(starterShip.captain);
@@ -279,18 +444,19 @@ function bootstrap() {
   initialCrew.forEach((crewMember) => company.addCrewMember(crewMember));
   assignCaptain(company.crew.reduce((best, candidate) => (!best || candidate.attributes.command > best.attributes.command ? candidate : best), null));
 
+  ensureLedger(gameLoop.day);
   generateRecruitmentPool(gameLoop.day);
   contractBoard.refreshContracts(gameLoop.day, starterShip.location);
 
   ui.setTitle(`TallySpace Simulation — ${GAME_VERSION}`);
-  eventSystem.emitLog(company, `TallySpace ${GAME_VERSION} initialized.`, gameLoop.day);
+  eventSystem.emitLog(company, `TallySpace v0.4.0 — UI and mission awareness upgrade initialized`, gameLoop.day);
   eventSystem.emitLog(company, `${company.name} founded with $${company.cash}.`, gameLoop.day);
   eventSystem.emitLog(company, `Commissioned ship ${starterShip.name}.`, gameLoop.day);
 
   ui.bindAdvanceHandlers(() => gameLoop.advanceDay(), () => gameLoop.advanceDays(10));
   ui.bindCrewActions({ onHire: hireCrew, onAssignCaptain: (index) => assignCaptain(company.crew[index]) });
   ui.bindShipActions({ onRestCrew: restCrew, onChangeShipMode: changeShipMode, onRefuelShip: refuelShip, onRepairShip: repairShip, onTravel: startTravel });
-  ui.bindContractActions({ onAcceptContract: acceptContract });
+  ui.bindContractActions({ onSelectContract: selectContract, onAcceptContract: acceptContract });
   ui.bindExportActions({ onExportData: exportData, onCopyExportData: copyExportData });
 
   setStatus('Simulation ready.');
