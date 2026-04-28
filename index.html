@@ -8,31 +8,52 @@
   </head>
   <body>
     <main class="app">
-      <h1>TallySpace Simulation</h1>
+      <h1 id="game-title">TallySpace Simulation</h1>
+      <p id="status-message" class="status">Awaiting command.</p>
 
       <section class="stats">
         <p><strong>Current Day:</strong> <span id="current-day">1</span></p>
         <p><strong>Company Cash:</strong> <span id="company-cash">$0</span></p>
         <p><strong>Ships:</strong> <span id="ship-count">0</span></p>
         <p><strong>Crew:</strong> <span id="crew-count">0</span></p>
-        <p><strong>Ship Fuel:</strong> <span id="ship-fuel">0/0</span></p>
       </section>
 
-      <section class="controls">
-        <button id="advance-1-day" type="button">Advance 1 Day</button>
-        <button id="advance-10-days" type="button">Advance 10 Days</button>
-        <button id="rest-crew" type="button">Rest Crew</button>
-        <button id="refuel-ship" type="button">Refuel</button>
-        <button id="export-data" type="button">Export Data</button>
-        <button id="copy-export-data" type="button">Copy Export JSON</button>
-        <label for="ship-mode">
-          Ship Mode
+      <section class="panel">
+        <h2>Ship Status</h2>
+        <p><strong>Fuel:</strong> <span id="ship-fuel">0/0</span></p>
+        <p><strong>Location:</strong> <span id="ship-location">-</span></p>
+        <p><strong>Captain:</strong> <span id="ship-captain">Assigned in crew list</span></p>
+        <p><strong>Operation mode:</strong>
           <select id="ship-mode">
             <option value="LOW">LOW</option>
             <option value="NORMAL" selected>NORMAL</option>
             <option value="HIGH">HIGH</option>
           </select>
-        </label>
+        </p>
+        <p><strong>Integrity:</strong> <span id="ship-integrity">-</span></p>
+        <p><strong>Active contract:</strong> <span id="ship-active-contract">None</span></p>
+        <p><strong>Daily wage burden:</strong> <span id="wage-burden">$0/day</span></p>
+        <p><strong>Travel readiness:</strong> <span id="ship-readiness">NO CAPTAIN</span></p>
+        <div class="controls">
+          <button id="advance-1-day" type="button">Advance 1 Day</button>
+          <button id="advance-10-days" type="button">Advance 10 Days</button>
+          <button id="rest-crew" type="button">Rest Crew</button>
+          <button id="refuel-ship" type="button">Refuel</button>
+          <button id="repair-ship" type="button">Repair</button>
+          <button id="export-data" type="button">Export Data</button>
+          <button id="copy-export-json" type="button">Copy Export JSON</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Sector Map</h2>
+        <p id="system-description">-</p>
+        <ul id="destinations-list" class="crew-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Contract Board</h2>
+        <ul id="contract-board" class="crew-list"></ul>
       </section>
 
       <section class="panel">

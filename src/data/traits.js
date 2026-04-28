@@ -1,7 +1,17 @@
 export const traits = [
-  'Steady',
-  'Methodical',
-  'Bold',
-  'Pragmatic',
-  'Disciplined'
+  'Loyal',
+  'Reckless',
+  'Cautious',
+  'Greedy',
+  'Disciplined',
+  'Fragile',
+  'Natural Leader',
+  'Fast Learner',
+  'Cynical',
+  'Idealist',
+  'Hard Drinker',
+  'Spacer Born',
+  'Claustrophobic',
+  'Fixer',
+  'Lucky'
 ];
