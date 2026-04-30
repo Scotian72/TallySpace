@@ -123,7 +123,7 @@ export default class Ship {
       repaired += used;
       remaining -= used;
     });
-    this.integrity = this.compartments.hull;
+    this.integrity = typeof this.compartments.hull === 'number' ? this.compartments.hull : this.integrity;
     this.repairsPerformed += repaired > 0 ? 1 : 0;
     return repaired;
   }
