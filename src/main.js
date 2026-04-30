@@ -10,8 +10,12 @@ import { species } from './data/species.js';
 import NewGameUI from './ui/NewGameUI.js';
 import { generateCompanionCandidates } from './data/companionTemplates.js';
 import { createGameFromSetup } from './engine/GameFactory.js';
+import CrewGenerator from './engine/CrewGenerator.js';
+import { crewArchetypes } from './data/crewArchetypes.js';
+import { traits } from './data/traits.js';
 
 const rng = new RNG(424242);
+const crewGenerator = new CrewGenerator({ rng, archetypes: crewArchetypes, traits });
 const eventSystem = new EventSystem();
 const ui = new UIController();
 let contractBoard = null;
@@ -578,8 +582,9 @@ function runDailySimulation(day) {
 function initFromSetup(payload){
   const root=document.getElementById('new-game-root');
   const shell=document.getElementById('game-shell');
-  const result=createGameFromSetup({rng,eventSystem,systemsById:systemById,...payload,companionCandidates:window.__newGameCandidates||[]});
+  const result=createGameFromSetup({rng,systemsById:systemById,...payload,companionCandidates:window.__newGameCandidates||[]});
   company=result.company; starterShip=result.starterShip; contractBoard=result.contractBoard; setupChoices=result.setupChoices;
+  (result.startupLogMessages ?? []).forEach((message) => eventSystem.emitLog(company, message, gameLoop.day));
   root.hidden=true; shell.hidden=false;
   ui.setTitle(`TallySpace Simulation — ${GAME_VERSION}`);
   ensureLedger(gameLoop.day);
