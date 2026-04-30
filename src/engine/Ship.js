@@ -20,6 +20,13 @@ export default class Ship {
     this.location = location;
     this.activeContract = null;
     this.travelPlan = null;
+    this.compartments = { engines: 88, lifeSupport: 92, sensors: 90, hull: this.integrity };
+    this.quirks = [];
+    this.historyLog = [];
+    this.totalMissionsCompleted = 0;
+    this.totalDamageTaken = 0;
+    this.repairsPerformed = 0;
+    this.crewDeaths = 0;
   }
 
   assignCaptain(crewMember) { this.captain = crewMember; }
@@ -42,6 +49,7 @@ export default class Ship {
 
   getReadiness() {
     if (!this.captain) return 'NO CAPTAIN';
+    if ((this.crewCount ?? 0) < (this.minCrew ?? 1)) return 'LOW CREW';
     if (this.fuel <= 0) return 'NO FUEL';
     if (this.integrity < 35) return 'DAMAGED';
     if (!this.activeContract) return 'NO CONTRACT';
@@ -87,7 +95,38 @@ export default class Ship {
     return restored;
   }
 
-  applyDamage(points) { this.integrity = Math.max(0, this.integrity - Math.max(0, Math.round(points))); }
+  applyDamage(points) {
+    const loss = Math.max(0, Math.round(points));
+    this.integrity = Math.max(0, this.integrity - loss);
+    this.totalDamageTaken += loss;
+    this.compartments.hull = this.integrity;
+    return loss;
+  }
+
+  applyCompartmentDamage(compartment, points) {
+    if (!(compartment in this.compartments)) return 0;
+    const loss = Math.max(0, Math.round(points));
+    this.compartments[compartment] = Math.max(0, this.compartments[compartment] - loss);
+    if (compartment === 'hull') this.integrity = this.compartments.hull;
+    this.totalDamageTaken += loss;
+    return loss;
+  }
+
+  repairCompartments(points) {
+    let remaining = Math.max(0, Math.round(points));
+    let repaired = 0;
+    Object.keys(this.compartments).forEach((key) => {
+      if (remaining <= 0) return;
+      const need = 100 - this.compartments[key];
+      const used = Math.min(remaining, need);
+      this.compartments[key] += used;
+      repaired += used;
+      remaining -= used;
+    });
+    this.integrity = this.compartments.hull;
+    this.repairsPerformed += repaired > 0 ? 1 : 0;
+    return repaired;
+  }
 
   getFuelMultiplierFromCommand(command) {
     if (command >= 80) return 0.7;

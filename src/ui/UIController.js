@@ -119,6 +119,19 @@ export default class UIController {
     this.copyExportDataBtn = document.getElementById('copy-export-json');
 
     this.selectedContractId = null;
+    this.tabEls = [...document.querySelectorAll('.tab-btn')];
+    this.panelEls = [...document.querySelectorAll('.tab-panel')];
+    this.bindTabs();
+  }
+
+
+  bindTabs() {
+    const show = (tab) => {
+      this.tabEls.forEach((b)=>b.classList.toggle('active', b.dataset.tab===tab));
+      this.panelEls.forEach((p)=>p.classList.toggle('active', p.dataset.panel===tab));
+    };
+    this.tabEls.forEach((btn)=>btn.addEventListener('click', ()=>show(btn.dataset.tab)));
+    show('command');
   }
 
   setTitle(text) { this.titleEl.textContent = text; }
@@ -185,6 +198,8 @@ export default class UIController {
     this.locationEl.textContent = currentSystem?.name ?? 'Unknown';
     this.readinessEl.textContent = ship.getReadiness();
     this.integrityEl.textContent = `${ship.integrity}%`;
+    const quirks = ship.quirks?.length ? ` | Quirks: ${ship.quirks.join(', ')}` : '';
+    this.readinessEl.title = `Compartments E:${ship.compartments?.engines ?? '-'} LS:${ship.compartments?.lifeSupport ?? '-'} S:${ship.compartments?.sensors ?? '-'}${quirks}`;
     this.wageBurdenEl.textContent = `$${metrics.dailyWages.toLocaleString()}/day`;
     this.systemDescEl.textContent = currentSystem?.description ?? '-';
     this.shipModeSelect.value = ship?.operationMode ?? 'NORMAL';
