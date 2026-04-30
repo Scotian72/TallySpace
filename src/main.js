@@ -1,36 +1,27 @@
 import RNG from './engine/RNG.js';
 import GameLoop from './engine/GameLoop.js';
 import Company from './engine/Company.js';
-import Ship from './engine/Ship.js';
-import CrewGenerator from './engine/CrewGenerator.js';
 import EventSystem from './engine/EventSystem.js';
 import ContractBoard from './engine/ContractBoard.js';
 import { GAME_VERSION } from './constants.js';
-import { shipTemplates } from './data/ships.js';
-import { crewArchetypes } from './data/crewArchetypes.js';
-import { traits } from './data/traits.js';
 import { systems, systemById } from './data/systems.js';
 import UIController from './ui/UIController.js';
 import { species } from './data/species.js';
+import NewGameUI from './ui/NewGameUI.js';
+import { generateCompanionCandidates } from './data/companionTemplates.js';
+import { createGameFromSetup } from './engine/GameFactory.js';
 
 const rng = new RNG(424242);
 const eventSystem = new EventSystem();
 const ui = new UIController();
-const crewGenerator = new CrewGenerator({ rng, archetypes: crewArchetypes, traits });
-const contractBoard = new ContractBoard({ rng, systemsById: systemById });
-const company = new Company({ name: 'TallySpace Logistics', startingCash: 26000 });
-const starterShip = new Ship({ ...shipTemplates[0], location: 'new-canaan', fuel: 62 });
-starterShip.minCrew = 3;
-starterShip.maxCrew = 8;
-starterShip.crewCount = 0;
-starterShip.compartments = { engines: 72, lifeSupport: 76, sensors: 81, hull: 84 };
-starterShip.integrity = 84;
-starterShip.quirks = ['Fuel Inefficient'];
-company.addShip(starterShip);
+let contractBoard = null;
+let company = null;
+let starterShip = null;
+let setupChoices = null;
+let selectedContractId = null;
 
 const gameLoop = new GameLoop({ onDayAdvance(day) { runDailySimulation(day); render(); } });
 const financeLedger = new Map();
-let selectedContractId = null;
 
 function ensureLedger(day) {
   if (!financeLedger.has(day)) {
@@ -481,9 +472,13 @@ function setupNewGameFlow() {
 }
 
 function serializeGameState() {
+  const captain = starterShip?.captain;
   return {
     version: GAME_VERSION,
     day: gameLoop.day,
+    playerCharacter: captain ? { name: captain.name, archetype: captain.archetype, commandStyle: captain.commandStyle ?? setupChoices?.commandStyle ?? 'Measured', attributes: { ...captain.attributes }, traits: [...captain.traits], background: captain.personalHistory ?? '' } : null,
+    selectedStarterShipId: setupChoices?.selectedStarterShipId ?? null,
+    setupChoices,
     currentSystem: starterShip.location,
     systems,
     currentContracts: contractBoard.contracts,
@@ -580,45 +575,41 @@ function runDailySimulation(day) {
   processTravelDay();
 }
 
-function bootstrap() {
-  eventSystem.subscribe(() => render());
-  const initialCrew = crewGenerator.generateBatch(2);
-  if (initialCrew.every((c) => c.species === 'human')) initialCrew[0].species = 'avian', initialCrew[0].speciesModifiers = species.avian.modifiers;
-  initialCrew.forEach((crewMember, idx) => {
-    crewMember.archetype = idx === 0 ? `Executive Officer (${crewMember.archetype})` : `Chief Engineer (${crewMember.archetype})`;
-    crewMember.morale = 70; crewMember.fatigue = 28;
-    company.addCrewMember(crewMember);
-  });
-  starterShip.crewCount = company.crew.length;
-  assignCaptain(company.crew.reduce((best, candidate) => (!best || candidate.attributes.command > best.attributes.command ? candidate : best), null));
-
-  ensureLedger(gameLoop.day);
-  generateRecruitmentPool(gameLoop.day);
-  contractBoard.refreshContracts(gameLoop.day, starterShip.location);
-  if (contractBoard.contracts.length >= 3) {
-    contractBoard.contracts[0].risk = 20; contractBoard.contracts[0].payout = 2800;
-    contractBoard.contracts[1].risk = 48; contractBoard.contracts[1].payout = 5200;
-    contractBoard.contracts[2].risk = 78; contractBoard.contracts[2].payout = 9300;
-  }
-
+function initFromSetup(payload){
+  const root=document.getElementById('new-game-root');
+  const shell=document.getElementById('game-shell');
+  const result=createGameFromSetup({rng,eventSystem,systemsById:systemById,...payload,companionCandidates:window.__newGameCandidates||[]});
+  company=result.company; starterShip=result.starterShip; contractBoard=result.contractBoard; setupChoices=result.setupChoices;
+  root.hidden=true; shell.hidden=false;
   ui.setTitle(`TallySpace Simulation — ${GAME_VERSION}`);
-  eventSystem.emitLog(company, 'TallySpace v0.9.0 initialized: crew behavior, ship identity, and mission consequence loop active.', gameLoop.day);
-  eventSystem.emitLog(company, `${company.name} founded with $${company.cash}.`, gameLoop.day);
-  eventSystem.emitLog(company, `Commissioned ship ${starterShip.name}.`, gameLoop.day);
-
+  ensureLedger(gameLoop.day);
   ui.bindAdvanceHandlers(() => gameLoop.advanceDay(), () => gameLoop.advanceDays(10));
   ui.bindCrewActions({ onHire: hireCrew, onAssignCaptain: (index) => assignCaptain(company.crew[index]) });
   ui.bindShipActions({ onRestCrew: restCrew, onChangeShipMode: changeShipMode, onRefuelShip: refuelShip, onRepairShip: repairShip, onTravel: startTravel });
   ui.bindContractActions({ onSelectContract: selectContract, onAcceptContract: acceptContract });
   ui.bindExportActions({ onExportData: exportData, onCopyExportData: copyExportData });
-  document.getElementById('new-game')?.addEventListener('click', setupNewGameFlow);
   document.getElementById('save-game')?.addEventListener('click', saveGame);
   document.getElementById('load-game')?.addEventListener('click', loadGame);
   document.getElementById('reset-save')?.addEventListener('click', resetSave);
-  document.getElementById('dev-tools')?.addEventListener('click', openDevToolsPanel);
+  render(); saveGame();
+}
 
-  setStatus('Simulation ready.');
-  render();
+function bootstrap() {
+  eventSystem.subscribe(() => render());
+  const root=document.getElementById('new-game-root');
+  const shell=document.getElementById('game-shell');
+  const hasSave=Boolean(localStorage.getItem(SAVE_KEY));
+  if(hasSave){
+    root.hidden=false; shell.hidden=true;
+    root.innerHTML=`<section class='panel'><h2>Saved game detected. Reset or continue current session.</h2><div class='controls'><button id='continue-session'>Continue Current Session</button><button id='reset-session'>Reset Save</button></div></section>`;
+    document.getElementById('continue-session').addEventListener('click',()=>{localStorage.removeItem(SAVE_KEY); location.reload();});
+    document.getElementById('reset-session').addEventListener('click',()=>{localStorage.removeItem(SAVE_KEY); location.reload();});
+    return;
+  }
+  root.hidden=false; shell.hidden=true;
+  const candidates=generateCompanionCandidates(rng,5); window.__newGameCandidates=candidates;
+  const newGameUI=new NewGameUI({rootEl:root,candidates,onStart:initFromSetup});
+  newGameUI.mount();
 }
 
 bootstrap();
