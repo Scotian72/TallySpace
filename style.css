@@ -66,3 +66,8 @@ select { border: 1px solid #334155; background: #020617; color: #e2e8f0; border-
   .command-grid { grid-template-columns: 1fr; }
 }
 .tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 1rem}.tab-btn{background:#1e293b}.tab-btn.active{background:#0ea5e9}.tab-panel{display:none}.tab-panel.active{display:block}body{overflow-x:hidden}.app{overflow-x:hidden}
+.setup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:8px 0}
+.setup-card{text-align:left;border:1px solid #555;background:#111;color:#eee;padding:10px;border-radius:6px}
+.setup-card.selected{outline:2px solid #63b3ed;border-color:#63b3ed}
+.setup-card:disabled{opacity:.45;cursor:not-allowed}
+.warning{color:#f6ad55}

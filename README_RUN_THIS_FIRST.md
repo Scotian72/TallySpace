@@ -31,3 +31,19 @@ Then open:
 ## Notes
 - Contract board refreshes every 5 days and removes expired entries.
 - Export includes version, systems, contracts, crew progression data, ship readiness/location, and last 300 events.
+
+## v1.0.1 — Real New Game Flow
+- Start with no save data to open the 3-step New Game setup.
+- Step 1: Enter captain name, choose one archetype, choose command style.
+- Step 2: Choose exactly two companions from five generated candidates.
+- Step 3: Choose one starter ship and press **Start Company**.
+- Reset save via browser localStorage clear or in-app Reset Save flow.
+
+### What v1.0.1 adds
+- Real captain archetype + companion + starter ship setup.
+- Setup choices now initialize live game state and are exported in JSON.
+- Crew pools initialize near 70% of chosen ship optimal crew.
+
+### Known limitations
+- Save rehydration is still not fully implemented.
+- Continue flow currently prompts reset/continue message before entering a fresh session.
