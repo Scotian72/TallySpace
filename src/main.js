@@ -407,14 +407,7 @@ function processTravelDay() {
       const fatigueSpike = rng.int(4, 10);
       company.crew.forEach((c) => { c.fatigue = Math.min(100, c.fatigue + fatigueSpike); });
       eventSystem.emitLog(company, `Minor event: fatigue spike +${fatigueSpike}.`, gameLoop.day);
-    } else if (result === 'PARTIAL') {
-    const payout = Math.round(contract.payout * 0.55);
-    company.cash += payout;
-    trackFinance(gameLoop.day, { income: payout });
-    company.crew.forEach((crew) => { crew.fatigue = Math.min(100, crew.fatigue + rng.int(4, 10)); });
-    if (rng.int(1,100)<=35) starterShip.applyCompartmentDamage('engines', rng.int(1,4));
-    log(`Contract partial: ${contract.type}. Earned $${payout}. Crew fatigue increased.`);
-  } else {
+    } else {
       const repairNeed = rng.int(1, 4);
       starterShip.applyDamage(repairNeed);
       eventSystem.emitLog(company, `Minor event: systems wear, integrity -${repairNeed}.`, gameLoop.day);
@@ -452,6 +445,39 @@ function processTravelDay() {
   }
 
   starterShip.travelPlan = null;
+}
+
+const SAVE_KEY = 'tallyspace.v1.save';
+
+function saveGame() {
+  localStorage.setItem(SAVE_KEY, createSaveJson());
+  log('Game saved to local storage.');
+}
+
+function loadGame() {
+  const payload = localStorage.getItem(SAVE_KEY);
+  if (!payload) return log('No save found in local storage.');
+  log('Save found. Reloading session from latest save.');
+  location.reload();
+}
+
+function resetSave() {
+  localStorage.removeItem(SAVE_KEY);
+  log('Saved game data cleared.');
+}
+
+function openDevToolsPanel() {
+  document.querySelector('[data-tab="dev-tools"]')?.click();
+  log('Dev Tools tab opened.');
+}
+
+function setupNewGameFlow() {
+  if (company.eventLog.length > 3) {
+    const proceed = window.confirm('Start a new game? Unsaved progress will be lost.');
+    if (!proceed) return log('New game canceled.');
+  }
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
 }
 
 function serializeGameState() {
@@ -585,6 +611,11 @@ function bootstrap() {
   ui.bindShipActions({ onRestCrew: restCrew, onChangeShipMode: changeShipMode, onRefuelShip: refuelShip, onRepairShip: repairShip, onTravel: startTravel });
   ui.bindContractActions({ onSelectContract: selectContract, onAcceptContract: acceptContract });
   ui.bindExportActions({ onExportData: exportData, onCopyExportData: copyExportData });
+  document.getElementById('new-game')?.addEventListener('click', setupNewGameFlow);
+  document.getElementById('save-game')?.addEventListener('click', saveGame);
+  document.getElementById('load-game')?.addEventListener('click', loadGame);
+  document.getElementById('reset-save')?.addEventListener('click', resetSave);
+  document.getElementById('dev-tools')?.addEventListener('click', openDevToolsPanel);
 
   setStatus('Simulation ready.');
   render();
