@@ -1,4 +1,15 @@
+import { species } from '../data/species.js';
 import CrewMember from './CrewMember.js';
+
+
+const speciesRollTable = [
+  { key: 'human', weight: 68 },
+  { key: 'mammalian', weight: 10 },
+  { key: 'reptilian', weight: 8 },
+  { key: 'amphibian', weight: 6 },
+  { key: 'avian', weight: 5 },
+  { key: 'rock', weight: 3 }
+];
 
 const histories = [
   'Ran courier routes through disputed lanes and knows every shortcut beacon.',
@@ -13,6 +24,16 @@ export default class CrewGenerator {
     this.rng = rng;
     this.archetypes = archetypes;
     this.traits = traits;
+  }
+
+  pickSpecies() {
+    const total = speciesRollTable.reduce((sum, item) => sum + item.weight, 0);
+    let roll = this.rng.int(1, total);
+    for (const item of speciesRollTable) {
+      roll -= item.weight;
+      if (roll <= 0) return item.key;
+    }
+    return 'human';
   }
 
   generateCandidate() {
@@ -36,6 +57,7 @@ export default class CrewGenerator {
     const wageVariance = this.rng.int(-20, 30);
     const wage = Math.max(90, archetype.wage + wageVariance);
 
+    const speciesKey = this.pickSpecies();
     return new CrewMember({
       name,
       attributes,
@@ -50,7 +72,9 @@ export default class CrewGenerator {
       riskTolerance: this.rng.int(20, 90),
       discipline: this.rng.int(30, 90),
       greed: this.rng.int(15, 90),
-      hiddenPotential: this.rng.int(20, 95)
+      hiddenPotential: this.rng.int(20, 95),
+      species: speciesKey,
+      speciesModifiers: species[speciesKey]?.modifiers ?? {}
     });
   }
 

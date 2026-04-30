@@ -11,6 +11,7 @@ import { crewArchetypes } from './data/crewArchetypes.js';
 import { traits } from './data/traits.js';
 import { systems, systemById } from './data/systems.js';
 import UIController from './ui/UIController.js';
+import { species } from './data/species.js';
 
 const rng = new RNG(424242);
 const eventSystem = new EventSystem();
@@ -147,6 +148,51 @@ function getMetrics() {
   };
 }
 
+
+function getCrewPoolData() {
+  const pools = { engineering: [], navigation: [], command: [] };
+  company.crew.forEach((crew) => {
+    const bestRole = crew.attributes.engineering >= crew.attributes.navigation && crew.attributes.engineering >= crew.attributes.command
+      ? 'engineering'
+      : crew.attributes.navigation >= crew.attributes.command
+        ? 'navigation'
+        : 'command';
+    pools[bestRole].push(crew);
+  });
+
+  return Object.entries(pools).map(([name, members]) => {
+    const speciesBreakdown = members.reduce((acc, member) => {
+      const key = member.species ?? 'human';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const weightedModifiers = {};
+    members.forEach((member) => {
+      const mods = member.speciesModifiers ?? {};
+      Object.entries(mods).forEach(([key, value]) => {
+        weightedModifiers[key] = (weightedModifiers[key] ?? 0) + value / Math.max(1, members.length);
+      });
+    });
+    return { name, count: members.length, speciesBreakdown, weightedModifiers };
+  });
+}
+
+function processSpeciesFriction(day) {
+  const crewSpecies = new Set(company.crew.map((c) => c.species));
+  if (crewSpecies.has('mammalian') && crewSpecies.has('reptilian') && rng.int(1, 100) <= 10) {
+    company.crew.forEach((c) => { c.morale = Math.max(0, c.morale - 1); });
+    eventSystem.emitLog(company, 'Minor crew friction: mammalian and reptilian teams clashed.', day);
+  }
+  if (crewSpecies.has('reptilian') && crewSpecies.has('avian') && rng.int(1, 100) <= 8) {
+    company.crew.forEach((c) => { c.morale = Math.max(0, c.morale - 1); });
+    eventSystem.emitLog(company, 'Minor distrust reported between reptilian and avian crew.', day);
+  }
+  if (crewSpecies.has('amphibian') && starterShip.integrity < 70 && rng.int(1, 100) <= 18) {
+    company.crew.filter((c) => c.species === 'amphibian').forEach((c) => { c.morale = Math.max(0, c.morale - 2); });
+    eventSystem.emitLog(company, 'Amphibian crew morale dipped due to poor ship condition.', day);
+  }
+}
+
 function setStatus(message) { ui.setStatus(message); }
 function log(message) { eventSystem.emitLog(company, message, gameLoop.day); setStatus(message); }
 
@@ -175,7 +221,7 @@ function hireCrew(index) {
   if (company.cash < candidate.wage) return log(`Cannot hire ${candidate.name}: insufficient cash.`);
   const hiredCrew = company.hireCandidate(index);
   trackFinance(gameLoop.day, { otherExpense: hiredCrew.wage });
-  log(`Hired ${hiredCrew.name} (${hiredCrew.archetype}) for $${hiredCrew.wage}.`);
+  log(`Hired ${hiredCrew.name} (${hiredCrew.archetype}, ${species[hiredCrew.species]?.name ?? 'Human'}) for $${hiredCrew.wage}.`);
   render();
 }
 
@@ -185,7 +231,10 @@ function restCrew() {
   if (company.cash < restCost) return log(`Cannot rest crew: need $${restCost} and have $${company.cash}.`);
   company.cash -= restCost;
   trackFinance(gameLoop.day, { otherExpense: restCost });
-  company.crew.forEach((crewMember) => crewMember.rest(rng));
+  company.crew.forEach((crewMember) => {
+    crewMember.rest(rng);
+    if (crewMember.species === 'mammalian') eventSystem.emitLog(company, 'Mammalian crew morale improved after rest.', gameLoop.day);
+  });
   log(`Crew rested. Cost $${restCost}.`);
   render();
 }
@@ -364,11 +413,12 @@ function serializeGameState() {
     systems,
     currentContracts: contractBoard.contracts,
     activeContracts: company.fleet.map((ship) => ({ ship: ship.name, contract: ship.activeContract })),
-    company: { cash: company.cash, ships: company.fleet.length, crew: company.crew.length },
+    company: { cash: company.cash, ships: company.fleet.length, crew: company.crew.length, crewPools: getCrewPoolData() },
     crew: company.crew.map((c) => ({
       name: c.name, archetype: c.archetype, traits: c.traits, experience: c.experience, level: c.level, personalHistory: c.personalHistory,
       rolePreference: c.rolePreference, riskTolerance: c.riskTolerance, discipline: c.discipline, greed: c.greed, hiddenPotential: c.hiddenPotential,
-      attributes: { ...c.attributes }, morale: c.morale, fatigue: c.fatigue, loyalty: c.loyalty, wage: c.wage, isCaptain: c.isCaptain
+      attributes: { ...c.attributes }, morale: c.morale, fatigue: c.fatigue, loyalty: c.loyalty, wage: c.wage, isCaptain: c.isCaptain,
+      species: c.species, speciesModifiers: c.speciesModifiers
     })),
     ships: company.fleet.map((ship) => ({
       name: ship.name, location: ship.location, fuel: ship.fuel, fuelCapacity: ship.fuelCapacity, integrity: ship.integrity,
@@ -425,8 +475,13 @@ function runDailySimulation(day) {
       fatigueRange: [2, 6],
       fatigueMultiplier: starterShip.getOperationModeModifiers().fatigueMultiplier,
       isOperating: shipCanOperate,
-      moralePenaltyMultiplier: starterShip.fuel > 0 ? 1 : 1.8
+      moralePenaltyMultiplier: starterShip.fuel > 0 ? 1 : 1.8,
+      shipIntegrity: starterShip.integrity,
+      role: crewMember.rolePreference
     });
+    if (crewMember.species === 'reptilian' && crewMember.fatigue >= 70 && rng.int(1, 100) <= 8) eventSystem.emitLog(company, 'Reptilian crew maintained stable performance under stress.', day);
+    if (crewMember.species === 'avian' && crewMember.rolePreference === 'navigation' && rng.int(1, 100) <= 8) eventSystem.emitLog(company, 'Avian navigator improved route efficiency.', day);
+    if (crewMember.species === 'rock' && starterShip.integrity < 60 && rng.int(1, 100) <= 10) eventSystem.emitLog(company, 'Rock-based crew contained structural damage effectively.', day);
     if (crewMember.shouldQuit(rng)) {
       if (crewMember.isCaptain) starterShip.assignCaptain(null);
       eventSystem.emitLog(company, `${crewMember.name} quit due to low morale and pay pressure.`, day);
@@ -435,12 +490,14 @@ function runDailySimulation(day) {
     return true;
   });
 
+  processSpeciesFriction(day);
   processTravelDay();
 }
 
 function bootstrap() {
   eventSystem.subscribe(() => render());
   const initialCrew = crewGenerator.generateBatch(3);
+  if (initialCrew.every((c) => c.species === 'human')) initialCrew[0].species = 'avian', initialCrew[0].speciesModifiers = species.avian.modifiers;
   initialCrew.forEach((crewMember) => company.addCrewMember(crewMember));
   assignCaptain(company.crew.reduce((best, candidate) => (!best || candidate.attributes.command > best.attributes.command ? candidate : best), null));
 
@@ -449,7 +506,7 @@ function bootstrap() {
   contractBoard.refreshContracts(gameLoop.day, starterShip.location);
 
   ui.setTitle(`TallySpace Simulation — ${GAME_VERSION}`);
-  eventSystem.emitLog(company, `TallySpace v0.4.0 — UI and mission awareness upgrade initialized`, gameLoop.day);
+  eventSystem.emitLog(company, `TallySpace v0.8.0 — Species Integration + Crew Behavior initialized`, gameLoop.day);
   eventSystem.emitLog(company, `${company.name} founded with $${company.cash}.`, gameLoop.day);
   eventSystem.emitLog(company, `Commissioned ship ${starterShip.name}.`, gameLoop.day);
 
