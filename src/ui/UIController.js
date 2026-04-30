@@ -1,3 +1,4 @@
+import { species, speciesLegend } from '../data/species.js';
 function clampPercent(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -8,6 +9,30 @@ function getCrewRole(crewMember) {
   if (engineering >= command && engineering >= navigation) return 'Engineer';
   if (navigation >= command && navigation >= engineering) return 'Navigator';
   return crewMember.resolve < 45 ? 'Security' : 'Operations';
+}
+
+function getSpeciesLabel(crewMember) {
+  const item = species[crewMember.species] ?? species.human;
+  return `${item.name} (${item.code})`;
+}
+
+function buildCrewPoolBreakdown(company) {
+  const buckets = { command: [], engineering: [], navigation: [] };
+  company.crew.forEach((crew) => {
+    const role = getCrewRole(crew).toLowerCase();
+    const key = role.includes('engineer') ? 'engineering' : role.includes('navigator') ? 'navigation' : 'command';
+    buckets[key].push(crew);
+  });
+
+  return Object.entries(buckets).map(([pool, members]) => {
+    const speciesCounts = members.reduce((acc, member) => {
+      const key = member.species ?? 'human';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const summary = Object.entries(speciesCounts).map(([key, count]) => `${count}${species[key]?.code ?? '?'}`).join(' / ');
+    return `${pool[0].toUpperCase()}${pool.slice(1)}: ${members.length}${summary ? ` (${summary})` : ''}`;
+  });
 }
 
 function getCrewStatusTag(crewMember) {
@@ -247,7 +272,8 @@ export default class UIController {
             <strong>${crewMember.name}</strong>
             <span class="tag">${getCrewStatusTag(crewMember)}</span>
           </div>
-          <p class="subtext">${crewMember.archetype} • Role: ${getCrewRole(crewMember)}${crewMember.isCaptain ? ' (Captain)' : ''}</p>
+          <p class="subtext">${crewMember.archetype} • ${getSpeciesLabel(crewMember)}</p>
+          <p class="subtext">Role: ${getCrewRole(crewMember)}${crewMember.isCaptain ? ' (Captain)' : ''}</p>
           <p>Personality: ${getPersonalityHint(crewMember)}</p>
           <p>Traits: ${crewMember.traits.join(', ')}</p>
           <div class="mini-bars">
@@ -264,10 +290,17 @@ export default class UIController {
 
   renderRecruitment(company) {
     this.recruitmentEl.innerHTML = '';
+    const pools = buildCrewPoolBreakdown(company);
+    if (pools.length) {
+      const pool = document.createElement('li');
+      pool.className = 'crew-card';
+      pool.innerHTML = `<div><strong>Crew Pools</strong><p class="subtext">${pools.join(' • ')}</p><p class="subtext" title="${speciesLegend.join(', ')}">Legend: ${speciesLegend.join(' | ')}</p></div>`;
+      this.recruitmentEl.appendChild(pool);
+    }
     company.availableCrew.slice(0, 5).forEach((candidate, index) => {
       const item = document.createElement('li');
       item.className = 'crew-card';
-      item.innerHTML = `<div><strong>${candidate.name}</strong><p class="subtext">${candidate.archetype}</p><p>Traits: ${candidate.traits.join(', ')}</p><p>Role fit: ${candidate.rolePreference}</p><p>Wage $${candidate.wage}</p></div><button type="button" data-action="hire" data-index="${index}">Hire</button>`;
+      item.innerHTML = `<div><strong>${candidate.name}</strong><p class="subtext">${candidate.archetype} • ${getSpeciesLabel(candidate)}</p><p>Traits: ${candidate.traits.join(', ')}</p><p>Role fit: ${candidate.rolePreference}</p><p>Wage $${candidate.wage}</p></div><button type="button" data-action="hire" data-index="${index}">Hire</button>`;
       this.recruitmentEl.appendChild(item);
     });
     if (!company.availableCrew.length) {
