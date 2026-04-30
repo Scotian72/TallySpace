@@ -12,6 +12,7 @@
       <p id="status-message" class="status">Awaiting command.</p>
       <div id="alert-banners" class="alert-stack"></div>
       <p id="player-loop-hint" class="loop-hint"></p>
+      <nav class="tabs" id="tabs"><button data-tab="command" class="tab-btn active">Command</button><button data-tab="ship" class="tab-btn">Ship</button><button data-tab="crew" class="tab-btn">Crew</button><button data-tab="missions" class="tab-btn">Missions</button><button data-tab="map" class="tab-btn">Map</button><button data-tab="market" class="tab-btn">Market</button><button data-tab="log" class="tab-btn">Log</button></nav>
 
       <section class="stats">
         <p><strong>Current Day:</strong> <span id="current-day">1</span></p>
@@ -20,7 +21,7 @@
         <p><strong>Crew:</strong> <span id="crew-count">0</span></p>
       </section>
 
-      <section class="panel command-panel">
+      <section class="panel command-panel tab-panel" data-panel="command">
         <h2>COMMAND STATUS</h2>
         <div class="command-grid">
           <p><strong>Ship:</strong> <span id="command-ship-name">-</span></p>
@@ -39,7 +40,7 @@
         <p><strong>Net Projection:</strong> <span id="command-projection">No mission selected.</span></p>
       </section>
 
-      <section class="panel">
+      <section class="panel tab-panel" data-panel="ship">
         <h2>Ship Operations</h2>
         <p><strong>Fuel:</strong> <span id="ship-fuel">0/0</span></p>
         <p><strong>Location:</strong> <span id="ship-location">-</span></p>
@@ -64,8 +65,8 @@
         </div>
       </section>
 
-      <section class="panel">
-        <h2>COMPANY FINANCIALS</h2>
+      <section class="panel tab-panel" data-panel="market">
+        <h2>Market & Financial Pressure</h2>
         <p><strong>Daily wages:</strong> <span id="fin-daily-wages">$0/day</span></p>
         <p><strong>Fuel costs (recent):</strong> <span id="fin-fuel-cost">$0</span></p>
         <p><strong>Repair costs (recent):</strong> <span id="fin-repair-cost">$0</span></p>
@@ -73,29 +74,29 @@
         <p><strong>Projection:</strong> <span id="fin-bankrupt">Stable.</span></p>
       </section>
 
-      <section class="panel">
+      <section class="panel tab-panel" data-panel="map">
         <h2>Sector Map</h2>
         <p id="system-description">-</p>
         <ul id="destinations-list" class="crew-list"></ul>
       </section>
 
-      <section class="panel">
+      <section class="panel tab-panel" data-panel="missions">
         <h2>Contract Board</h2>
         <ul id="contract-board" class="crew-list"></ul>
         <div id="mission-briefing" class="mission-briefing"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel tab-panel" data-panel="crew">
         <h2>Company Crew</h2>
         <ul id="company-crew" class="crew-list"></ul>
       </section>
 
-      <section class="panel">
+      <section class="panel tab-panel" data-panel="crew">
         <h2>Recruitment</h2>
         <ul id="recruitment-list" class="crew-list"></ul>
       </section>
 
-      <section class="events">
+      <section class="events tab-panel" data-panel="log">
         <h2>Event Log</h2>
         <ul id="event-log"></ul>
       </section>
