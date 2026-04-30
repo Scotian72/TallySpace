@@ -16,10 +16,18 @@ export function createGameFromSetup({ rng, eventSystem, systemsById, day=1, capt
   captain.commandStyle = commandStyle;
   captain.captainArchetypeId = archetype.id;
 
-  const starterShip = new Ship({ name: shipTemplate.name, fuel: shipTemplate.startingFuel, fuelCapacity: shipTemplate.fuelCapacity, integrity: Math.round(Object.values(shipTemplate.compartments).reduce((s,c)=>s+c.condition,0)/10), location: 'new-canaan' });
+  const templateCompartments = { ...shipTemplate.compartments };
+  if (!templateCompartments.hull) {
+    templateCompartments.hull = { condition: shipTemplate.integrity ?? 80, status: 'Worn' };
+  }
+
+  const starterShip = new Ship({ name: shipTemplate.name, fuel: shipTemplate.startingFuel, fuelCapacity: shipTemplate.fuelCapacity, integrity: templateCompartments.hull.condition, location: 'new-canaan' });
   starterShip.registry = shipTemplate.registry; starterShip.hullClass = shipTemplate.hullClass; starterShip.role = shipTemplate.role;
   starterShip.minCrew = shipTemplate.minCrew; starterShip.maxCrew = shipTemplate.maxCrew; starterShip.optimalCrew = shipTemplate.optimalCrew; starterShip.officerSlots = shipTemplate.officerSlots; starterShip.cargoCapacity = shipTemplate.cargoCapacity; starterShip.quirks = [...shipTemplate.quirks];
-  starterShip.compartments = Object.fromEntries(Object.entries(shipTemplate.compartments).map(([k,v])=>[k,v.condition]));
+  starterShip.compartments = Object.fromEntries(Object.entries(templateCompartments).map(([k,v])=>[k,v.condition]));
+  if (typeof starterShip.compartments.hull !== 'number') {
+    starterShip.compartments.hull = shipTemplate.integrity ?? 80;
+  }
   starterShip.assignCaptain(captain);
 
   company.addShip(starterShip);
@@ -34,9 +42,12 @@ export function createGameFromSetup({ rng, eventSystem, systemsById, day=1, capt
   }
   starterShip.crewCount = company.crew.length;
   contractBoard.refreshContracts(day,'new-canaan');
-  eventSystem.emitLog(company, `${company.name} founded with $${company.cash}.`, day);
-  eventSystem.emitLog(company, `Captain ${captain.name} took command (${archetype.name}, ${commandStyle}).`, day);
-  eventSystem.emitLog(company, `Commissioned ${starterShip.name} at New Canaan Station.`, day);
 
-  return { playerCharacter: captain, company, starterShip, officers, crewPools: company.crew, startingSystem: 'new-canaan', initialContracts: contractBoard.contracts, contractBoard, setupChoices: { captainArchetypeId, selectedCompanionIds, selectedStarterShipId, commandStyle } };
+  const startupLogMessages = [
+    `${company.name} founded with $${company.cash}.`,
+    `Captain ${captain.name} took command (${archetype.name}, ${commandStyle}).`,
+    `Commissioned ${starterShip.name} at New Canaan Station.`
+  ];
+
+  return { playerCharacter: captain, company, starterShip, officers, crewPools: company.crew, startingSystem: 'new-canaan', initialContracts: contractBoard.contracts, contractBoard, setupChoices: { captainArchetypeId, selectedCompanionIds, selectedStarterShipId, commandStyle }, startupLogMessages };
 }

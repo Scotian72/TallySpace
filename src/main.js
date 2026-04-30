@@ -10,6 +10,7 @@ import { species } from './data/species.js';
 import NewGameUI from './ui/NewGameUI.js';
 import { generateCompanionCandidates } from './data/companionTemplates.js';
 import { createGameFromSetup } from './engine/GameFactory.js';
+import CrewGenerator from './engine/CrewGenerator.js';
 
 const rng = new RNG(424242);
 const eventSystem = new EventSystem();
@@ -19,6 +20,7 @@ let company = null;
 let starterShip = null;
 let setupChoices = null;
 let selectedContractId = null;
+let crewGenerator = null;
 
 const gameLoop = new GameLoop({ onDayAdvance(day) { runDailySimulation(day); render(); } });
 const financeLedger = new Map();
@@ -209,6 +211,10 @@ function setStatus(message) { ui.setStatus(message); }
 function log(message) { eventSystem.emitLog(company, message, gameLoop.day); setStatus(message); }
 
 function render() {
+  if (!company || !starterShip || !contractBoard) {
+    setStatus('Awaiting company initialization.');
+    return;
+  }
   ui.renderState({ day: gameLoop.day, company, systemsById: systemById, contracts: contractBoard.contracts, metrics: getMetrics(), selectedContractId });
 }
 
@@ -580,6 +586,7 @@ function initFromSetup(payload){
   const shell=document.getElementById('game-shell');
   const result=createGameFromSetup({rng,eventSystem,systemsById:systemById,...payload,companionCandidates:window.__newGameCandidates||[]});
   company=result.company; starterShip=result.starterShip; contractBoard=result.contractBoard; setupChoices=result.setupChoices;
+  crewGenerator = new CrewGenerator({ rng, speciesById: species });
   root.hidden=true; shell.hidden=false;
   ui.setTitle(`TallySpace Simulation — ${GAME_VERSION}`);
   ensureLedger(gameLoop.day);
@@ -591,7 +598,9 @@ function initFromSetup(payload){
   document.getElementById('save-game')?.addEventListener('click', saveGame);
   document.getElementById('load-game')?.addEventListener('click', loadGame);
   document.getElementById('reset-save')?.addEventListener('click', resetSave);
-  render(); saveGame();
+  (result.startupLogMessages ?? []).forEach((message) => eventSystem.emitLog(company, message, gameLoop.day));
+  render();
+  saveGame();
 }
 
 function bootstrap() {
