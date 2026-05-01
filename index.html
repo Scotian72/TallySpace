@@ -10,19 +10,20 @@
     <main id="new-game-root" class="app"></main>
     <main class="app" id="game-shell">
       <h1 id="game-title">TallySpace Simulation</h1>
-      <p id="build-status" class="status">v1.0.0-stabilization</p>
+      <p id="build-status" class="status">v1.0.3-hotfix</p>
       <p id="status-message" class="status">Awaiting command.</p>
       <div id="alert-banners" class="alert-stack"></div>
       <p id="player-loop-hint" class="loop-hint"></p>
 
-      <section id="new-game-setup" class="panel command-panel">
-        <h2>Game Controls</h2>
+      <section class="panel">
+        <h2>Top Action Bar</h2>
         <div class="controls">
-          <button id="new-game" type="button">New Game</button>
+          <button id="advance-1-day" type="button">Advance 1 Day</button>
+          <button id="advance-10-days" type="button">Advance 10 Days</button>
           <button id="save-game" type="button">Save Game</button>
-          <button id="load-game" type="button">Load Game</button>
+          <button id="export-data" type="button">Export Data</button>
+          <button id="copy-export-json" type="button">Copy Save JSON</button>
           <button id="reset-save" type="button">Reset Save</button>
-          <button id="dev-tools" type="button">Dev Tools</button>
         </div>
       </section>
 
@@ -30,7 +31,7 @@
         <button data-tab="command" class="tab-btn active">Command</button>
         <button data-tab="ship" class="tab-btn">Ship</button>
         <button data-tab="crew" class="tab-btn">Crew</button>
-        <button data-tab="missions" class="tab-btn">Missions</button>
+        <button data-tab="missions" class="tab-btn">Missions <span id="missions-badge">0</span></button>
         <button data-tab="map" class="tab-btn">Map</button>
         <button data-tab="market" class="tab-btn">Market</button>
         <button data-tab="log" class="tab-btn">Log</button>
@@ -44,16 +45,15 @@
         <p><strong>Crew:</strong> <span id="crew-count">0</span></p>
       </section>
 
-      <section class="panel command-panel tab-panel active" data-panel="command">
-        <h2>COMMAND STATUS</h2>
-        <div class="command-grid">
-          <p><strong>Ship:</strong> <span id="command-ship-name">-</span></p>
-          <p><strong>Location:</strong> <span id="command-location">-</span></p>
-          <p><strong>Captain:</strong> <span id="command-captain">-</span></p>
-          <p class="command-state"><strong>Current Status:</strong> <span id="command-status" class="command-status-text">IDLE</span></p>
-        </div>
+      <section class="panel tab-panel active" data-panel="command">
+        <h2>Command Dashboard</h2>
+        <p><strong>Ship:</strong> <span id="command-ship-name">-</span></p>
+        <p><strong>Location:</strong> <span id="command-location">-</span></p>
+        <p><strong>Captain:</strong> <span id="command-captain">-</span></p>
+        <p><strong>Status:</strong> <span id="command-status">IDLE</span></p>
         <p><strong>Active Contract:</strong> <span id="command-active-contract">None</span></p>
-        <p id="travel-headline" class="travel-headline">Awaiting orders.</p>
+        <p><strong>Mission Phase:</strong> <span id="command-mission-phase">Foundation present — not fully implemented.</span></p>
+        <p id="travel-headline">Awaiting orders.</p>
         <p id="travel-eta" class="subtext"></p>
         <div class="progress"><span id="command-progress-fill"></span></div>
         <p id="command-progress-label" class="subtext">0% complete</p>
@@ -61,13 +61,29 @@
         <p><strong>Net Projection:</strong> <span id="command-projection">No mission selected.</span></p>
       </section>
 
-      <section class="panel tab-panel" data-panel="ship"><h2>Ship Operations</h2><p><strong>Fuel:</strong> <span id="ship-fuel">0/0</span></p><p><strong>Location:</strong> <span id="ship-location">-</span></p><p><strong>Operation mode:</strong> <select id="ship-mode"><option value="LOW">LOW</option><option value="NORMAL" selected>NORMAL</option><option value="HIGH">HIGH</option></select></p><p><strong>Integrity:</strong> <span id="ship-integrity">-</span></p><p><strong>Daily wage burden:</strong> <span id="wage-burden">$0/day</span></p><p><strong>Travel readiness:</strong> <span id="ship-readiness">NO CAPTAIN</span></p><div class="controls"><button id="advance-1-day" type="button">Advance 1 Day</button><button id="advance-10-days" type="button">Advance 10 Days</button><button id="rest-crew" type="button">Rest Crew</button><button id="refuel-ship" type="button">Refuel</button><button id="repair-ship" type="button">Repair</button><button id="export-data" type="button">Export Data</button><button id="copy-export-json" type="button">Copy Export JSON</button></div></section>
-      <section class="panel tab-panel" data-panel="market"><h2>Market & Financial Pressure</h2><p><strong>Daily wages:</strong> <span id="fin-daily-wages">$0/day</span></p><p><strong>Fuel costs (recent):</strong> <span id="fin-fuel-cost">$0</span></p><p><strong>Repair costs (recent):</strong> <span id="fin-repair-cost">$0</span></p><p><strong>Net income (last 10 days):</strong> <span id="fin-net-10">$0</span></p><p><strong>Projection:</strong> <span id="fin-bankrupt">Stable.</span></p></section>
-      <section class="panel tab-panel" data-panel="map"><h2>Sector Map</h2><p id="system-description">-</p><ul id="destinations-list" class="crew-list"></ul></section>
-      <section class="panel tab-panel" data-panel="missions"><h2>Contract Board</h2><ul id="contract-board" class="crew-list"></ul><div id="mission-briefing" class="mission-briefing"></div></section>
-      <section class="panel tab-panel" data-panel="crew"><h2>Company Crew</h2><ul id="company-crew" class="crew-list"></ul><h2>Recruitment</h2><ul id="recruitment-list" class="crew-list"></ul></section>
-      <section class="events tab-panel" data-panel="log"><h2>Event Log</h2><ul id="event-log"></ul></section>
-      <section class="panel tab-panel" data-panel="dev-tools"><h2>Dev Tools</h2><p>Use setup controls above to save/load/reset for stabilization testing.</p></section>
+      <section class="panel tab-panel" data-panel="ship">
+        <h2>Ship Operations</h2>
+        <p><strong>Fuel:</strong> <span id="ship-fuel">0/0</span></p>
+        <p><strong>Location:</strong> <span id="ship-location">-</span></p>
+        <p><strong>Travel readiness:</strong> <span id="ship-readiness">NO CAPTAIN</span></p>
+        <p><strong>Operation mode:</strong> <select id="ship-mode"><option value="LOW">LOW</option><option value="NORMAL" selected>NORMAL</option><option value="HIGH">HIGH</option></select></p>
+        <p><strong>Integrity:</strong> <span id="ship-integrity">-</span></p>
+        <p><strong>Daily wage burden:</strong> <span id="wage-burden">$0/day</span></p>
+        <div class="controls">
+          <button id="repair-damaged" type="button">Repair Damaged</button>
+          <button id="perform-maintenance" type="button">Perform Maintenance</button>
+          <button id="repair-ship" type="button">Repair All Affordable</button>
+          <button id="refuel-ship" type="button">Refuel</button>
+          <button id="rest-crew" type="button">Rest Crew</button>
+        </div>
+      </section>
+
+      <section class="panel tab-panel" data-panel="crew"><h2>Crew Panel</h2><ul id="company-crew" class="crew-list"></ul><h3>Recruitment</h3><ul id="recruitment-list" class="crew-list"></ul></section>
+      <section class="panel tab-panel" data-panel="missions"><h2>Missions Panel</h2><ul id="contract-board" class="crew-list"></ul><div id="mission-briefing" class="mission-briefing"></div></section>
+      <section class="panel tab-panel" data-panel="map"><h2>Map Panel</h2><p id="system-description">-</p><ul id="destinations-list" class="crew-list"></ul></section>
+      <section class="panel tab-panel" data-panel="market"><h2>Market Panel</h2><p><strong>Daily wages:</strong> <span id="fin-daily-wages">$0/day</span></p><p><strong>Fuel costs (recent):</strong> <span id="fin-fuel-cost">$0</span></p><p><strong>Repair costs (recent):</strong> <span id="fin-repair-cost">$0</span></p><p><strong>Net income (last 10 days):</strong> <span id="fin-net-10">$0</span></p><p><strong>Projection:</strong> <span id="fin-bankrupt">Stable.</span></p></section>
+      <section class="panel tab-panel" data-panel="log"><h2>Log Panel</h2><ul id="event-log"></ul></section>
+      <section class="panel tab-panel" data-panel="dev-tools"><h2>Dev Tools Panel</h2><p>Foundation present — not fully implemented.</p></section>
     </main>
     <script type="module" src="./src/main.js"></script>
   </body>

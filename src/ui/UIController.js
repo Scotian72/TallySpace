@@ -117,8 +117,13 @@ export default class UIController {
     this.repairShipBtn = document.getElementById('repair-ship');
     this.exportDataBtn = document.getElementById('export-data');
     this.copyExportDataBtn = document.getElementById('copy-export-json');
+    this.repairDamagedBtn = document.getElementById('repair-damaged');
+    this.performMaintenanceBtn = document.getElementById('perform-maintenance');
+    this.commandMissionPhaseEl = document.getElementById('command-mission-phase');
+    this.missionsBadgeEl = document.getElementById('missions-badge');
 
     this.selectedContractId = null;
+    this.bound = { tabs: false, advance: false, crew: false, ship: false, contract: false, export: false }; 
     this.tabEls = [...document.querySelectorAll('.tab-btn')];
     this.panelEls = [...document.querySelectorAll('.tab-panel')];
     this.bindTabs();
@@ -126,6 +131,8 @@ export default class UIController {
 
 
   bindTabs() {
+    if (this.bound.tabs) return;
+    this.bound.tabs = true;
     const show = (tab) => {
       this.tabEls.forEach((b)=>b.classList.toggle('active', b.dataset.tab===tab));
       this.panelEls.forEach((p)=>p.classList.toggle('active', p.dataset.panel===tab));
@@ -138,42 +145,52 @@ export default class UIController {
   setStatus(message) { this.statusMessageEl.textContent = message; }
 
   bindAdvanceHandlers(onAdvanceOne, onAdvanceTen) {
-    this.advanceOneBtn.addEventListener('click', onAdvanceOne);
-    this.advanceTenBtn.addEventListener('click', onAdvanceTen);
+    if (this.bound.advance) return;
+    this.bound.advance = true;
+    this.advanceOneBtn?.addEventListener('click', onAdvanceOne);
+    this.advanceTenBtn?.addEventListener('click', onAdvanceTen);
   }
 
   bindCrewActions({ onHire, onAssignCaptain }) {
-    this.recruitmentEl.addEventListener('click', (event) => {
+    if (this.bound.crew) return;
+    this.bound.crew = true;
+    this.recruitmentEl?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-action="hire"]');
       if (button) onHire(Number(button.dataset.index));
     });
 
-    this.companyCrewEl.addEventListener('click', (event) => {
+    this.companyCrewEl?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-action="assign-captain"]');
       if (button) onAssignCaptain(Number(button.dataset.index));
     });
   }
 
   bindShipActions({ onRestCrew, onChangeShipMode, onRefuelShip, onRepairShip, onTravel }) {
-    this.restCrewBtn.addEventListener('click', onRestCrew);
-    this.refuelShipBtn.addEventListener('click', onRefuelShip);
-    this.repairShipBtn.addEventListener('click', onRepairShip);
-    this.shipModeSelect.addEventListener('change', (event) => onChangeShipMode(event.target.value));
-    this.destinationsEl.addEventListener('click', (event) => {
+    if (this.bound.ship) return;
+    this.bound.ship = true;
+    this.restCrewBtn?.addEventListener('click', onRestCrew);
+    this.refuelShipBtn?.addEventListener('click', onRefuelShip);
+    this.repairShipBtn?.addEventListener('click', onRepairShip);
+    this.repairDamagedBtn?.addEventListener('click', onRepairShip);
+    this.performMaintenanceBtn?.addEventListener('click', onRepairShip);
+    this.shipModeSelect?.addEventListener('change', (event) => onChangeShipMode(event.target.value));
+    this.destinationsEl?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-action="travel"]');
       if (button) onTravel(button.dataset.destination);
     });
   }
 
   bindContractActions({ onSelectContract, onAcceptContract }) {
-    this.contractBoardEl.addEventListener('click', (event) => {
+    if (this.bound.contract) return;
+    this.bound.contract = true;
+    this.contractBoardEl?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-action="select-contract"]');
       if (!button) return;
       this.selectedContractId = button.dataset.id;
       onSelectContract(this.selectedContractId);
     });
 
-    this.contractBriefingEl.addEventListener('click', (event) => {
+    this.contractBriefingEl?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-action="accept-selected-contract"]');
       if (!button || !this.selectedContractId) return;
       onAcceptContract(this.selectedContractId);
@@ -181,8 +198,10 @@ export default class UIController {
   }
 
   bindExportActions({ onExportData, onCopyExportData }) {
-    this.exportDataBtn.addEventListener('click', onExportData);
-    this.copyExportDataBtn.addEventListener('click', onCopyExportData);
+    if (this.bound.export) return;
+    this.bound.export = true;
+    this.exportDataBtn?.addEventListener('click', onExportData);
+    this.copyExportDataBtn?.addEventListener('click', onCopyExportData);
   }
 
   renderState({ day, company, systemsById, contracts, metrics, selectedContractId }) {
@@ -215,6 +234,7 @@ export default class UIController {
     this.renderCompanyCrew(company);
     this.renderRecruitment(company);
     this.renderContracts(contracts, systemsById, this.selectedContractId);
+    if (this.missionsBadgeEl) this.missionsBadgeEl.textContent = String(contracts.length);
     this.renderMissionBriefing(contracts, systemsById, ship, this.selectedContractId);
     this.renderEvents(company);
   }
@@ -252,6 +272,7 @@ export default class UIController {
     this.commandProjectionEl.className = `projection ${metrics.netProjectionType}`;
 
     this.commandTravelHeadlineEl.textContent = metrics.travelHeadline;
+    if (this.commandMissionPhaseEl) this.commandMissionPhaseEl.textContent = ship.activeContract ? (ship.travelPlan ? 'EN_ROUTE' : 'ACCEPTED') : this.selectedContractId ? 'SELECTED' : 'IDLE';
     this.commandTravelEtaEl.textContent = metrics.travelEta;
     this.commandProgressFillEl.style.width = `${clampPercent(metrics.progressPercent)}%`;
     this.commandProgressLabelEl.textContent = `${clampPercent(metrics.progressPercent)}% complete`;

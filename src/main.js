@@ -599,8 +599,24 @@ function initFromSetup(payload){
   render(); saveGame();
 }
 
+
+function validateUniqueIds() {
+  const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+  const counts = ids.reduce((acc, id) => {
+    acc[id] = (acc[id] ?? 0) + 1;
+    return acc;
+  }, {});
+  const duplicates = Object.entries(counts).filter(([, count]) => count > 1).map(([id]) => id);
+  if (duplicates.length) {
+    console.warn('Duplicate IDs detected:', duplicates);
+    ui.setStatus('UI integrity warning: duplicate element IDs detected.');
+  }
+  return duplicates;
+}
+
 function bootstrap() {
   eventSystem.subscribe(() => render());
+  validateUniqueIds();
   const root=document.getElementById('new-game-root');
   const shell=document.getElementById('game-shell');
   const hasSave=Boolean(localStorage.getItem(SAVE_KEY));
