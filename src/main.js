@@ -22,6 +22,7 @@ let contractBoard = null;
 let company = null;
 let starterShip = null;
 let setupChoices = null;
+let shipRoleCoverage = null;
 let selectedContractId = null;
 
 const gameLoop = new GameLoop({ onDayAdvance(day) { runDailySimulation(day); render(); } });
@@ -480,9 +481,10 @@ function serializeGameState() {
   return {
     version: GAME_VERSION,
     day: gameLoop.day,
-    playerCharacter: captain ? { name: captain.name, archetype: captain.archetype, commandStyle: captain.commandStyle ?? setupChoices?.commandStyle ?? 'Measured', attributes: { ...captain.attributes }, traits: [...captain.traits], background: captain.personalHistory ?? '' } : null,
+    playerCharacter: captain ? { name: captain.name, species: captain.species, archetype: captain.archetype, commandStyle: captain.commandStyle ?? setupChoices?.captain?.commandStyle ?? 'Measured', primaryRole: captain.primaryRole ?? 'Captain', secondaryRole: captain.secondaryRole ?? null, attributes: { ...captain.attributes }, traits: [...captain.traits], personality: { ...(captain.personality ?? {}) }, backstory: captain.personalHistory ?? '' } : null,
     selectedStarterShipId: setupChoices?.selectedStarterShipId ?? null,
     setupChoices,
+    shipRoleCoverage,
     currentSystem: starterShip.location,
     systems,
     currentContracts: contractBoard.contracts,
@@ -494,6 +496,7 @@ function serializeGameState() {
       attributes: { ...c.attributes }, morale: c.morale, fatigue: c.fatigue, loyalty: c.loyalty, wage: c.wage, isCaptain: c.isCaptain,
       species: c.species, speciesModifiers: c.speciesModifiers
     })),
+    officers: company.crew.filter((c)=>c.isCaptain || c.relationship || ['Captain','Pilot','Navigator','Chief Engineer','Operations Officer','Tactical Officer','Security Chief','Doctor','Medic','Broker','Steward','Quartermaster','Administrator','Science Officer','XO','Engineer'].includes(c.primaryRole)).map((c)=>({name:c.name,primaryRole:c.primaryRole??null,secondaryRole:c.secondaryRole??null,traits:[...c.traits],attributes:{...c.attributes},personality:{...(c.personality??{})},relationship:c.relationship??null,backstory:c.personalHistory??'',species:c.species,wage:c.wage,morale:c.morale,fatigue:c.fatigue,loyalty:c.loyalty,isCaptain:c.isCaptain})),
     ships: company.fleet.map((ship) => ({
       name: ship.name, location: ship.location, fuel: ship.fuel, fuelCapacity: ship.fuelCapacity, integrity: ship.integrity,
       captainAssignment: ship.captain?.name ?? null, operationMode: ship.operationMode, activeContract: ship.activeContract, readiness: ship.getReadiness(), historyLog: ship.historyLog, quirks: ship.quirks, compartments: ship.compartments, totalMissionsCompleted: ship.totalMissionsCompleted, totalDamageTaken: ship.totalDamageTaken, repairsPerformed: ship.repairsPerformed, crewDeaths: ship.crewDeaths
@@ -583,7 +586,7 @@ function initFromSetup(payload){
   const root=document.getElementById('new-game-root');
   const shell=document.getElementById('game-shell');
   const result=createGameFromSetup({rng,systemsById:systemById,...payload,companionCandidates:window.__newGameCandidates||[]});
-  company=result.company; starterShip=result.starterShip; contractBoard=result.contractBoard; setupChoices=result.setupChoices;
+  company=result.company; starterShip=result.starterShip; contractBoard=result.contractBoard; setupChoices=result.setupChoices; shipRoleCoverage=result.shipRoleCoverage;
   (result.startupLogMessages ?? []).forEach((message) => eventSystem.emitLog(company, message, gameLoop.day));
   root.hidden=true; shell.hidden=false;
   ui.setTitle(`TallySpace Simulation — ${GAME_VERSION}`);
