@@ -13,6 +13,7 @@ import { createGameFromSetup } from './engine/GameFactory.js';
 import CrewGenerator from './engine/CrewGenerator.js';
 import { crewArchetypes } from './data/crewArchetypes.js';
 import { traits } from './data/traits.js';
+import AutoplayBot from './testing/AutoplayBot.js';
 
 const rng = new RNG(424242);
 const crewGenerator = new CrewGenerator({ rng, archetypes: crewArchetypes, traits });
@@ -23,6 +24,9 @@ let company = null;
 let starterShip = null;
 let setupChoices = null;
 let selectedContractId = null;
+let autoplayBot = null;
+let latestBotReport = null;
+let duplicateUiIds = [];
 
 const gameLoop = new GameLoop({ onDayAdvance(day) { runDailySimulation(day); render(); } });
 const financeLedger = new Map();
@@ -466,6 +470,31 @@ function openDevToolsPanel() {
   log('Dev Tools tab opened.');
 }
 
+function updateBotStatus() {
+  ui.setBotStatus(autoplayBot?.getStatus?.() ?? { isRunning: false, day: latestBotReport?.daysCompleted ?? 0, lastAction: 'IDLE', failureReason: latestBotReport?.stopReason ?? '' });
+}
+
+function runBot(days) {
+  if (!autoplayBot) return;
+  const report = autoplayBot.run(days);
+  latestBotReport = report;
+  updateBotStatus();
+  log(`Autoplay bot completed ${report.daysCompleted}/${days} days. Stop reason: ${report.stopReason}.`);
+  render();
+}
+
+function stopBot() {
+  autoplayBot?.stop();
+  updateBotStatus();
+  log('Autoplay bot stop requested.');
+}
+
+function exportBotReport() {
+  if (!latestBotReport) return log('No bot report available yet.');
+  downloadExport(JSON.stringify(latestBotReport, null, 2));
+  log('Bot report exported.');
+}
+
 function setupNewGameFlow() {
   if (company.eventLog.length > 3) {
     const proceed = window.confirm('Start a new game? Unsaved progress will be lost.');
@@ -593,9 +622,16 @@ function initFromSetup(payload){
   ui.bindShipActions({ onRestCrew: restCrew, onChangeShipMode: changeShipMode, onRefuelShip: refuelShip, onRepairShip: repairShip, onTravel: startTravel });
   ui.bindContractActions({ onSelectContract: selectContract, onAcceptContract: acceptContract });
   ui.bindExportActions({ onExportData: exportData, onCopyExportData: copyExportData });
+  ui.bindDevToolsActions({ onRunBot30: () => runBot(30), onRunBot100: () => runBot(100), onRunBot365: () => runBot(365), onExportBotReport: exportBotReport, onStopBot: stopBot });
   document.getElementById('save-game')?.addEventListener('click', saveGame);
   document.getElementById('load-game')?.addEventListener('click', loadGame);
   document.getElementById('reset-save')?.addEventListener('click', resetSave);
+  autoplayBot = new AutoplayBot({
+    rngSeed: 424242, gameLoop, company, ship: starterShip,
+    getState: () => ({ company, ship: starterShip, contracts: contractBoard.contracts, systemsById: systemById, uniqueUiIds: duplicateUiIds, actions: { refuelShip, repairShip, restCrew, acceptContract, startTravel } }),
+    serializeGameState
+  });
+  updateBotStatus();
   render(); saveGame();
 }
 
@@ -607,6 +643,7 @@ function validateUniqueIds() {
     return acc;
   }, {});
   const duplicates = Object.entries(counts).filter(([, count]) => count > 1).map(([id]) => id);
+  duplicateUiIds = duplicates;
   if (duplicates.length) {
     console.warn('Duplicate IDs detected:', duplicates);
     ui.setStatus('UI integrity warning: duplicate element IDs detected.');

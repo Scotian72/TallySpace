@@ -121,9 +121,18 @@ export default class UIController {
     this.performMaintenanceBtn = document.getElementById('perform-maintenance');
     this.commandMissionPhaseEl = document.getElementById('command-mission-phase');
     this.missionsBadgeEl = document.getElementById('missions-badge');
+    this.runBot30Btn = document.getElementById('run-bot-30');
+    this.runBot100Btn = document.getElementById('run-bot-100');
+    this.runBot365Btn = document.getElementById('run-bot-365');
+    this.exportBotReportBtn = document.getElementById('export-bot-report');
+    this.stopBotBtn = document.getElementById('stop-bot');
+    this.botStatusEl = document.getElementById('bot-status');
+    this.botDayEl = document.getElementById('bot-day');
+    this.botActionEl = document.getElementById('bot-action');
+    this.botFailureEl = document.getElementById('bot-failure');
 
     this.selectedContractId = null;
-    this.bound = { tabs: false, advance: false, crew: false, ship: false, contract: false, export: false }; 
+    this.bound = { tabs: false, advance: false, crew: false, ship: false, contract: false, export: false, devTools: false }; 
     this.tabEls = [...document.querySelectorAll('.tab-btn')];
     this.panelEls = [...document.querySelectorAll('.tab-panel')];
     this.bindTabs();
@@ -202,6 +211,24 @@ export default class UIController {
     this.bound.export = true;
     this.exportDataBtn?.addEventListener('click', onExportData);
     this.copyExportDataBtn?.addEventListener('click', onCopyExportData);
+  }
+
+
+  bindDevToolsActions({ onRunBot30, onRunBot100, onRunBot365, onExportBotReport, onStopBot }) {
+    if (this.bound.devTools) return;
+    this.bound.devTools = true;
+    this.runBot30Btn?.addEventListener('click', onRunBot30);
+    this.runBot100Btn?.addEventListener('click', onRunBot100);
+    this.runBot365Btn?.addEventListener('click', onRunBot365);
+    this.exportBotReportBtn?.addEventListener('click', onExportBotReport);
+    this.stopBotBtn?.addEventListener('click', onStopBot);
+  }
+
+  setBotStatus({ isRunning, day, lastAction, failureReason }) {
+    if (this.botStatusEl) this.botStatusEl.textContent = isRunning ? 'RUNNING' : 'IDLE';
+    if (this.botDayEl) this.botDayEl.textContent = String(day ?? 0);
+    if (this.botActionEl) this.botActionEl.textContent = lastAction ?? '-';
+    if (this.botFailureEl) this.botFailureEl.textContent = failureReason || '-';
   }
 
   renderState({ day, company, systemsById, contracts, metrics, selectedContractId }) {
